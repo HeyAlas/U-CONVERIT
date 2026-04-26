@@ -1,0 +1,44 @@
+/* ConvertPDF.css */
+
+.tool-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 500px;
+}
+
+select {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  font-size: 13px;
+}
+
+input[type="file"] {
+  padding: 10px;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+textarea {
+  width: 100%;
+  min-height: 140px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  font-size: 13px;
+}

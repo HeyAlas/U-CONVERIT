@@ -1,0 +1,263 @@
+.pr-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #faf5ff 0%, #f0f9ff 100%);
+  padding: 2rem;
+}
+
+.pr-top-bar {
+  max-width: 1200px;
+  margin: 0 auto 1.5rem;
+}
+
+.pr-mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pr-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.pr-pill {
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pr-pill:hover {
+  border-color: #8B1515;
+  color: #8B1515;
+}
+
+.pr-pill.active {
+  background: #8B1515;
+  border-color: #8B1515;
+  color: white;
+}
+
+.pr-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .pr-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pr-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.pr-card.warning {
+  border-color: #f59e0b;
+}
+
+.pr-card.loading {
+  opacity: 0.9;
+}
+
+.pr-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.pr-card-title {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.pr-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pr-btn-icon {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pr-btn-icon:hover {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.pr-btn-text {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: white;
+  font-size: 0.875rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pr-btn-text:hover {
+  border-color: #8B1515;
+  color: #8B1515;
+}
+
+.pr-btn-text.success {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+
+.pr-btn-text:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pr-card-body {
+  flex: 1;
+  padding: 1rem 1.25rem;
+  position: relative;
+  min-height: 300px;
+}
+
+.pr-card-body textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 250px;
+  border: none;
+  resize: none;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #334155;
+  background: transparent;
+}
+
+.pr-card-body textarea:focus {
+  outline: none;
+}
+
+.pr-card-body textarea::placeholder {
+  color: #94a3b8;
+}
+
+.pr-ghost-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #e2e8f0;
+  pointer-events: none;
+}
+
+.pr-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #f1f5f9;
+  min-height: 70px;
+}
+
+.pr-char-count {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.pr-char-count.limit {
+  color: #f59e0b;
+}
+
+.pr-primary-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: #8B1515;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pr-primary-btn:hover:not(:disabled) {
+  background: #7a1212;
+}
+
+.pr-primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pr-loader {
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: pr-spin 0.8s linear infinite;
+}
+
+@keyframes pr-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pr-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 250px;
+}
+
+.pr-pulse-icon {
+  color: #8B1515;
+  animation: pr-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pr-pulse {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50% { transform: scale(1.1) rotate(180deg); opacity: 0.7; }
+}
+
+.pr-loading-text {
+  margin-top: 1rem;
+  color: #64748b;
+  font-size: 0.875rem;
+}

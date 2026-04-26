@@ -1,0 +1,309 @@
+/* QuizMaker.css — matches Humanizer/OCR design language */
+
+/* ── Wrapper ── */
+.qm-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* ── Setup textarea override (needs border since it's not borderless here) ── */
+.qm-setup-textarea {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem 1rem !important;
+  background: #fafafa !important;
+  resize: vertical;
+  min-height: 180px;
+}
+
+.qm-setup-textarea:focus {
+  border-color: #8B1515 !important;
+  background: #fff !important;
+}
+
+/* ── Progress bar ── */
+.qm-progress-wrap {
+  height: 3px;
+  background: #f1f5f9;
+}
+
+.qm-progress-fill {
+  height: 100%;
+  background: #8B1515;
+  transition: width 0.4s ease;
+}
+
+/* ── Counter label ── */
+.qm-counter-total {
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+/* ── Navigation dots ── */
+.qm-nav-dots {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 55%;
+}
+
+.qm-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #fafafa;
+  font-size: 10px;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  font-family: inherit;
+  padding: 0;
+}
+
+.qm-dot:hover { border-color: #8B1515; color: #8B1515; }
+.qm-dot.qm-dot-current  { background: #8B1515; color: #fff; border-color: #8B1515; }
+.qm-dot.qm-dot-correct  { background: #d4edda; color: #276541; border-color: #4caf6e; }
+.qm-dot.qm-dot-wrong    { background: #fde8e8; color: #a33030; border-color: #e05858; }
+.qm-dot.qm-dot-skipped  { background: #fff8e6; color: #7a5c1a; border-color: #f0c030; }
+
+/* ── Question text ── */
+.qm-question-text {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* ── Choice grid ── */
+.qm-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+}
+
+@media (max-width: 520px) {
+  .qm-choices { grid-template-columns: 1fr; }
+}
+
+/* ── Choice button ── */
+.qm-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fafafa;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.4;
+  transition: all 0.15s;
+}
+
+.qm-choice:hover:not(:disabled) {
+  border-color: #8B1515;
+  background: #fff;
+}
+
+.qm-choice:disabled { cursor: default; }
+
+.qm-choice.selected {
+  border-color: #1e293b;
+  background: #fff;
+}
+
+.qm-choice.correct {
+  border-color: #4caf6e;
+  background: #d4edda;
+  color: #1d5c35;
+}
+
+.qm-choice.wrong {
+  border-color: #e05858;
+  background: #fde8e8;
+  color: #8b2a2a;
+}
+
+.qm-choice.dimmed {
+  opacity: 0.4;
+}
+
+/* ── Choice letter badge ── */
+.qm-choice-letter {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ── Feedback bar ── */
+.qm-feedback {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.qm-feedback-correct {
+  background: #d4edda;
+  color: #1d5c35;
+  border: 1px solid #4caf6e;
+}
+
+.qm-feedback-wrong {
+  background: #fde8e8;
+  color: #8b2a2a;
+  border: 1px solid #e05858;
+}
+
+/* ── Results: score hero ── */
+.qm-score-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.qm-score-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #8B1515;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.qm-score-num {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.qm-score-denom {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.7);
+  margin-top: 2px;
+}
+
+.qm-score-headline {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* ── Results: stat breakdown ── */
+.qm-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.qm-stat {
+  border: 1px solid #f1f5f9;
+  border-radius: 0.75rem;
+  padding: 0.875rem;
+  text-align: center;
+  background: #fafafa;
+}
+
+.qm-stat-num {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.qm-stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.25rem;
+}
+
+.qm-stat-correct .qm-stat-num { color: #16a34a; }
+.qm-stat-wrong   .qm-stat-num { color: #8B1515; }
+.qm-stat-skip    .qm-stat-num { color: #f59e0b; }
+
+/* ── Results: review list ── */
+.qm-review {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.qm-review-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #f1f5f9;
+  background: #fff;
+}
+
+.qm-review-correct { border-left: 3px solid #4caf6e; }
+.qm-review-wrong   { border-left: 3px solid #e05858; }
+.qm-review-skip    { border-left: 3px solid #f0c030; }
+
+.qm-review-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.qm-review-q {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1e293b;
+  margin: 0 0 0.25rem;
+  line-height: 1.4;
+}
+
+.qm-review-ans {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* ── Shared animation (mirrors OCR.css) ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
