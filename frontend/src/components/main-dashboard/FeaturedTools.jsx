@@ -1,6 +1,28 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const FeaturedTools = () => {
+  const sectionRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const cards = entry.target.querySelectorAll('.tool-card');
+            cards.forEach((card, i) => {
+              card.style.animation = `fadeUp 0.6s ease both`;
+              card.style.animationDelay = `${i * 0.1}s`;
+            });
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+    if (sectionRef.current) observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   const tools = [
     {
       name: 'Paraphraser',
@@ -45,13 +67,34 @@ const FeaturedTools = () => {
   ];
 
   return (
-    <section id="features" className="py-20 bg-gray-50/50">
+    <section id="features" className="py-20 bg-gray-50/50" ref={sectionRef}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-2xl font-bold text-[#8B1515] mb-16">Featured tools</h2>
+        <h2
+          className="text-2xl font-bold text-[#8B1515] mb-16"
+          style={{ opacity: 0 }}
+          ref={(el) => {
+            if (el) {
+              const obs = new IntersectionObserver(([e]) => {
+                if (e.isIntersecting) {
+                  el.style.animation = 'fadeUp 0.6s ease both';
+                  obs.disconnect();
+                }
+              }, { threshold: 0.5 });
+              obs.observe(el);
+            }
+          }}
+        >
+          Featured tools
+        </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
           {tools.map((tool, index) => (
-            <div key={index} className="flex flex-col items-center group cursor-pointer">
-              <div className="w-16 h-16 mb-4 flex items-center justify-center text-[#8B1515]">
+            <div
+              key={index}
+              className="tool-card flex flex-col items-center group cursor-pointer"
+              style={{ opacity: 0 }}
+            >
+              {/* tool-icon class picks up the looping float from MainDashboard styles */}
+              <div className="tool-icon w-16 h-16 mb-4 flex items-center justify-center text-[#8B1515]">
                 {tool.icon}
               </div>
               <span className="font-semibold text-gray-700 group-hover:text-[#8B1515] transition-colors">
