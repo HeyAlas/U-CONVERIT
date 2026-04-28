@@ -18,7 +18,7 @@ const LOADING_PHRASES = [
   'Removing the robot vibes...',
 ];
 
-const CHAR_LIMIT = 2000;
+const CHAR_LIMIT = 100000;
 
 export function Humanizer() {
   const [inputText, setInputText]       = useState('');
@@ -57,7 +57,7 @@ export function Humanizer() {
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setInputText(text.slice(0, CHAR_LIMIT));
+      setInputText(text);
     } catch (error) {
       console.error("Clipboard access denied");
     }
@@ -69,7 +69,6 @@ export function Humanizer() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const isOverLimit = inputText.length >= CHAR_LIMIT;
   const scoreColor = humanScore >= 90 ? '#16a34a' : '#ca8a04';
 
   return (
@@ -92,7 +91,7 @@ export function Humanizer() {
 
       <main className="hm-main-grid">
         {/* Input Panel */}
-        <div className={`hm-card ${isOverLimit ? 'warning' : ''}`}>
+        <div className="hm-card">
           <div className="hm-card-header">
             <span className="hm-card-title">AI-Generated Content</span>
             <div className="hm-actions">
@@ -107,15 +106,13 @@ export function Humanizer() {
               placeholder="Paste your text here..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              maxLength={CHAR_LIMIT}
             />
             {!inputText && <div className="hm-ghost-icon"><ShieldCheck size={64} /></div>}
           </div>
 
           <div className="hm-card-footer">
-            <span className={`hm-char-count ${isOverLimit ? 'limit' : ''}`}>
-              {isOverLimit && <AlertCircle size={12} />}
-              {inputText.length} / {CHAR_LIMIT}
+            <span className="hm-char-count">
+              {inputText.length} characters
             </span>
             <button 
               className="hm-primary-btn" 

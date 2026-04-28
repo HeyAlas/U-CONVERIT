@@ -1,26 +1,31 @@
 /* --- UPDATED TOOL UI (matched to pr- design system) --- */
 
-.tool-container {
+.ocr-root {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #faf5ff 0%, #f0f9ff 100%);
+  padding: 2rem;
+}
+
+.ocr-root .tool-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #faf5ff 0%, #f0f9ff 100%);
+  width: 100%;
 }
 
 @media (max-width: 768px) {
-  .tool-container {
+  .ocr-root .tool-container {
     grid-template-columns: 1fr;
   }
 }
 
 /* CARD */
-.tool-panel {
+.ocr-root .tool-panel {
   display: flex;
   flex-direction: column;
+  width: 100%;
   background: #ffffff;
   border-radius: 1rem;
   border: 2px solid transparent;
@@ -30,7 +35,7 @@
 }
 
 /* HEADER */
-.panel-header {
+.ocr-root .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -38,7 +43,7 @@
   border-bottom: 1px solid #f1f5f9;
 }
 
-.panel-title {
+.ocr-root .panel-title {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -47,19 +52,19 @@
   color: #1e293b;
 }
 
-.panel-title svg {
+.ocr-root .panel-title svg {
   width: 18px;
   height: 18px;
   color: #8B1515;
 }
 
 /* ACTION BUTTONS */
-.panel-actions {
+.ocr-root .panel-actions {
   display: flex;
   gap: 0.5rem;
 }
 
-.btn-secondary {
+.ocr-root .btn-secondary {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -73,46 +78,54 @@
   transition: all 0.2s;
 }
 
-.btn-secondary:hover {
+.ocr-root .btn-secondary:hover {
   border-color: #8B1515;
   color: #8B1515;
 }
 
-.btn-secondary:disabled {
+.ocr-root .btn-secondary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* BODY */
-.panel-body {
+.ocr-root .panel-body {
   flex: 1;
   padding: 1rem 1.25rem;
-  min-height: 260px;
+  min-height: 300px;
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
 }
 
 /* TEXTAREA */
-.tool-textarea {
+.ocr-root .tool-textarea {
   width: 100%;
+  flex: 1;
   height: 100%;
   min-height: 250px;
-  border: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
   resize: none;
   font-size: 0.95rem;
   line-height: 1.6;
   color: #334155;
-  background: transparent;
+  background: #f8fafc;
+  padding: 1rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.tool-textarea:focus {
+.ocr-root .tool-textarea:focus {
   outline: none;
+  border-color: #8B1515;
+  background: #fff;
 }
 
-.tool-textarea::placeholder {
+.ocr-root .tool-textarea::placeholder {
   color: #94a3b8;
 }
 
 /* UPLOAD AREA */
-.upload-area {
+.ocr-root .upload-area {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -124,33 +137,38 @@
   transition: all 0.2s;
 }
 
-.upload-area:hover {
+.ocr-root .upload-area:hover {
   border-color: #8B1515;
   background: #fef2f2;
 }
 
-.upload-area.has-file {
+.ocr-root .upload-area.has-file {
   border-color: #8B1515;
   background: #fff;
 }
 
-.upload-content {
+.ocr-root .upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;     /* horizontal center */
+  justify-content: center; /* vertical center */
   text-align: center;
+  height: 100%;            /* IMPORTANT */
 }
 
-.upload-icon {
+.ocr-root .upload-icon {
   width: 40px;
   height: 40px;
   color: #cbd5f5;
 }
 
-.upload-text {
+.ocr-root .upload-text {
   font-size: 0.9rem;
   font-weight: 600;
   color: #334155;
 }
 
-.upload-hint {
+.ocr-root .upload-hint {
   font-size: 0.75rem;
   color: #94a3b8;
 }
@@ -162,12 +180,18 @@
 }
 
 /* FOOTER */
-.panel-footer {
+.ocr-root .panel-footer {
+  min-height: 70px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.25rem;
   border-top: 1px solid #f1f5f9;
+}
+
+.ocr-root .file-status {
+  font-size: 0.9rem;
+  color: #64748b;
 }
 
 /* CHAR COUNT */
@@ -177,7 +201,7 @@
 }
 
 /* PRIMARY BUTTON */
-.btn-primary {
+.ocr-root .btn-primary {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -192,11 +216,11 @@
   transition: 0.2s;
 }
 
-.btn-primary:hover:not(:disabled) {
+.ocr-root .btn-primary:hover:not(:disabled) {
   background: #7a1212;
 }
 
-.btn-primary:disabled {
+.ocr-root .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

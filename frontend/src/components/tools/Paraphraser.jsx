@@ -21,7 +21,7 @@ const LOADING_PHRASES = [
   'Almost there...',
 ];
 
-const CHAR_LIMIT = 2000;
+const CHAR_LIMIT = 100000;
 
 export function Paraphraser() {
   const [inputText, setInputText]       = useState('');
@@ -68,7 +68,7 @@ export function Paraphraser() {
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setInputText(text.slice(0, CHAR_LIMIT));
+      setInputText(text);
       inputRef.current?.focus();
     } catch (error) {
       console.error("Clipboard access denied");
@@ -87,8 +87,6 @@ export function Paraphraser() {
     setOutputText('');
     inputRef.current?.focus();
   };
-
-  const isOverLimit = inputText.length >= CHAR_LIMIT;
 
   return (
     <div className="pr-container">
@@ -110,7 +108,7 @@ export function Paraphraser() {
 
       <main className="pr-main-grid">
         {/* Input Panel */}
-        <div className={`pr-card ${isOverLimit ? 'warning' : ''}`}>
+        <div className="pr-card">
           <div className="pr-card-header">
             <span className="pr-card-title">Original Text</span>
             <div className="pr-actions">
@@ -124,16 +122,14 @@ export function Paraphraser() {
               ref={inputRef}
               placeholder="Type or paste your text here..."
               value={inputText}
-              onChange={(e) => setInputText(e.target.value.slice(0, CHAR_LIMIT))}
-              maxLength={CHAR_LIMIT}
+              onChange={(e) => setInputText(e.target.value)}
             />
             {!inputText && <div className="pr-ghost-icon"><RefreshCw size={64} /></div>}
           </div>
 
           <div className="pr-card-footer">
-            <span className={`pr-char-count ${isOverLimit ? 'limit' : ''}`}>
-              {isOverLimit && <AlertCircle size={12} />}
-              {inputText.length} / {CHAR_LIMIT}
+            <span className="pr-char-count">
+              {inputText.length} characters
             </span>
             <button 
               className="pr-primary-btn" 

@@ -1,0 +1,90 @@
+.qh-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #faf5ff 0%, #f0f9ff 100%);
+  padding: 2rem;
+}
+
+.qh-wrapper {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.qh-card {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 2px solid transparent;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.qh-card:hover {
+  border-color: #fbcfe8;
+  transform: translateY(-1px);
+}
+
+.qh-card-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.qh-heading {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #8B1515;
+}
+
+.qh-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #64748b;
+}
+
+.qh-card-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.qh-table-wrap {
+  overflow-x: auto;
+}
+
+.qh-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+.qh-table th,
+.qh-table td {
+  text-align: left;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.95rem;
+}
+
+.qh-table th {
+  color: #8B1515;
+  font-weight: 700;
+  background: #f8fafc;
+}
+
+.qh-table tbody tr:hover {
+  background: #fef2f2;
+}
+
+.qh-table td {
+  color: #1f2937;
+}
+
+@media (max-width: 720px) {
+  .qh-card-body {
+    padding: 1rem;
+  }
+
+  .qh-table th,
+  .qh-table td {
+    padding: 0.75rem 0.85rem;
+  }
+}

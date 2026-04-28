@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import Paraphraser from './tools/Paraphraser';
 import { Humanizer } from './tools/Humanizer';
-
 import { OCR } from './tools/OCR';
 import { QuizMaker } from './tools/QuizMaker';
 import { ConvertPDF } from './tools/ConvertPDF';
-import './tools/OCR.css';
-import './tools/ConvertPDF.css';
-import './tools/QuizMaker.css';
+import { QuizHistory } from './QuizHistory';
+import { Profile } from './Profile';
 import './Dashboard.css';
 
 const tools = [
@@ -33,7 +31,6 @@ const tools = [
     ),
     component: <Humanizer />,
   },
-  
   {
     id: 'ocr',
     label: 'OCR',
@@ -67,14 +64,19 @@ const tools = [
     ),
     component: <ConvertPDF />,
   },
-  
 ];
 
+const PROFILE_ID = 'profile';
+const QUIZ_HISTORY_ID = 'quizhistory';
+
 function Dashboard() {
-  const [activeTool, setActiveTool] = useState('paraphraser');
+  const [activeTool, setActiveTool]     = useState('paraphraser');
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const current = tools.find(t => t.id === activeTool);
+  const isProfile     = activeTool === PROFILE_ID;
+  const isQuizHistory = activeTool === QUIZ_HISTORY_ID;
+  const current       = tools.find(t => t.id === activeTool);
+  const topbarTitle   = isProfile ? 'My Profile' : isQuizHistory ? 'Quiz History' : `${current?.label} Tool`;
 
   return (
     <div className="dashboard">
@@ -89,7 +91,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="topbar-title">{current?.label} Tool</div>
+        <div className="topbar-title">{topbarTitle}</div>
 
         <div className="user-menu">
           <button
@@ -103,7 +105,18 @@ function Dashboard() {
           </button>
           {showDropdown && (
             <div className="dropdown">
-              <a href="/profile" className="dropdown-item">Profile</a>
+              <button
+                className="dropdown-item"
+                onClick={() => { setActiveTool(PROFILE_ID); setShowDropdown(false); }}
+              >
+                Profile
+              </button>
+              <button
+                className="dropdown-item"
+                onClick={() => { setActiveTool(QUIZ_HISTORY_ID); setShowDropdown(false); }}
+              >
+                Quiz History
+              </button>
               <a href="/login" className="dropdown-item logout">Log Out</a>
             </div>
           )}
@@ -111,8 +124,10 @@ function Dashboard() {
       </header>
 
       <div className="dashboard-main">
+        {/* ── Sidebar ── */}
         <aside className="dashboard-sidebar">
-          <nav className="sidebar-nav">
+          {/* Top: tool items */}
+          <nav className="sidebar-nav" style={{ flex: 1 }}>
             {tools.map(tool => (
               <button
                 key={tool.id}
@@ -128,7 +143,7 @@ function Dashboard() {
 
         <main className="dashboard-body">
           <div className="tool-area">
-            {current?.component}
+            {isProfile ? <Profile /> : isQuizHistory ? <QuizHistory /> : current?.component}
           </div>
         </main>
       </div>
