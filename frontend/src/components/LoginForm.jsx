@@ -17,7 +17,6 @@ function LoginForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Basic validation
     if (!formData.email || !formData.password) {
       setError('Please fill in all fields.');
       return;
@@ -25,11 +24,24 @@ function LoginForm() {
 
     setLoading(true);
 
-    // Simulate auth — replace this with your real auth call
+    // Check if the email ends with @cit.admin
+    const isAdmin = formData.email.toLowerCase().endsWith('@cit.admin');
+
     setTimeout(() => {
       setLoading(false);
-      // On success, navigate to dashboard (triggers PageTransition)
-      navigate('/dashboard');
+
+      if (isAdmin) {
+        // Store admin session info
+        sessionStorage.setItem('adminUser', JSON.stringify({
+          email: formData.email,
+          name: formData.email.split('@')[0],
+          role: 'Super Administrator',
+        }));
+        navigate('/admin-dashboard');
+      } else {
+        // Regular user → dashboard
+        navigate('/dashboard');
+      }
     }, 800);
   };
 

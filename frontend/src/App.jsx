@@ -5,11 +5,12 @@ import LoginForm from './components/LoginForm';
 import Dashboard from './components/Dashboard';
 import MainDashboard from './components/main-dashboard/MainDashboard';
 import PageTransition from './components/PageTransition';
+import Admin from './admin/Adminpage';
 import './App.css';
 
 function AppContent() {
   const location = useLocation();
-  const hideNavigation = location.pathname === '/dashboard';
+  const hideNavigation = ['/dashboard', '/admin-dashboard'].includes(location.pathname);
 
   return (
     <div className="app">
@@ -22,6 +23,7 @@ function AppContent() {
             <Route path="/login" element={<LoginForm />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/main-dashboard" element={<MainDashboard />} />
+            <Route path="/admin-dashboard" element={<Admin />} />
           </Routes>
         </PageTransition>
       </main>
