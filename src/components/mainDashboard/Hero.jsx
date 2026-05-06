@@ -1,8 +1,11 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Hero = () => {
+  const navigate = useNavigate();
+
   const handleFileUpload = () => {
-    console.log('File upload clicked');
+    navigate('/signup');
   };
 
   return (
@@ -24,13 +27,13 @@ const Hero = () => {
             >
               Paraphrase, Convert, and Generate Quizzes in seconds. Built by Technologists, for Technologists.
             </p>
-            <a
+            <Link
               className="hero-cta inline-block bg-[#8B1515] text-white px-8 py-4 rounded-md font-bold text-sm uppercase tracking-wide hover:bg-red-800 shadow-lg shadow-red-900/20"
-              href="#get-started"
+              to="/signup"
               style={{ animation: 'fadeUp 0.7s ease both', animationDelay: '0.4s' }}
             >
               GET STARTED NOW
-            </a>
+            </Link>
           </div>
 
           {/* Upload Widget */}
