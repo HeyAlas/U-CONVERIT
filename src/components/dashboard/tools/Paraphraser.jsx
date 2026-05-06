@@ -63,22 +63,43 @@ function Paraphraser() {
 
   const handleParaphrase = async () => {
     if (!inputText.trim() || isProcessing) return;
+
     setIsProcessing(true);
     setOutputText('');
     setSuccessFlash(false);
 
-    /* Replace with your real API call */
-    await new Promise(r => setTimeout(r, 2000));
-    setOutputText(
-      `[${mode.toUpperCase()}] ${inputText
-        .split('. ')
-        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-        .join('. ')}`
-    );
+    try {
+      const { supabase } = await import('../../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
 
-    setIsProcessing(false);
-    setSuccessFlash(true);
-    setTimeout(() => setSuccessFlash(false), 600);
+      const response = await fetch('http://localhost:8000/api/paraphrase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: inputText,
+          mode: mode,
+          user_id: user?.id || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to paraphrase text');
+      }
+
+      setOutputText(data.result);
+      setSuccessFlash(true);
+      setTimeout(() => setSuccessFlash(false), 600);
+
+    } catch (err) {
+      console.error('Paraphrase error:', err);
+      setOutputText(`❌ Error: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePaste = async () => {
@@ -86,7 +107,7 @@ function Paraphraser() {
       const text = await navigator.clipboard.readText();
       setInputText(text);
       inputRef.current?.focus();
-    } catch {
+    } catch (error) {
       console.error("Clipboard access denied");
     }
   };
