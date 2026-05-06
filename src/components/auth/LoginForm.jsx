@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../../styles/auth.css';   // ← UPDATED PATH
+import { login } from '../../services/authService';   // ← ADD THIS
+import '../../styles/auth.css';
+
 
 function LoginForm() {
   const navigate = useNavigate();
@@ -14,7 +16,7 @@ function LoginForm() {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.email || !formData.password) {
@@ -24,25 +26,30 @@ function LoginForm() {
 
     setLoading(true);
 
-    // Check if the email ends with @cit.admin
-    const isAdmin = formData.email.toLowerCase().endsWith('@cit.admin');
+    // Call real Supabase login!
+    const result = await login({
+      email: formData.email,
+      password: formData.password,
+    });
 
-    setTimeout(() => {
-      setLoading(false);
+    setLoading(false);
 
-      if (isAdmin) {
-        // Store admin session info
+    if (result.success) {
+      // Check if user is admin
+      if (result.data.role === 'admin' || result.data.role === 'super_admin') {
+        // Save admin info for AdminPage
         sessionStorage.setItem('adminUser', JSON.stringify({
-          email: formData.email,
-          name: formData.email.split('@')[0],
-          role: 'Super Administrator',
+          email: result.data.user.email,
+          name: result.data.user.user_metadata?.full_name || result.data.user.email.split('@')[0],
+          role: result.data.role === 'super_admin' ? 'Super Administrator' : 'Administrator',
         }));
         navigate('/admin-dashboard');
       } else {
-        // Regular user → dashboard
         navigate('/dashboard');
       }
-    }, 800);
+    } else {
+      setError(result.error || 'Login failed. Please check your credentials.');
+    }
   };
 
   return (

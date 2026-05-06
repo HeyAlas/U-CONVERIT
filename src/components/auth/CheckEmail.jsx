@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { verifyOtp, resendOtp } from '../../services/authService';   // ← ADD THIS
 import '../../styles/auth.css';
 
-// 🎯 Mock OTP for testing — change this to whatever you want
-// In production, this code will be sent via your backend (e.g., Supabase, SendGrid)
-const MOCK_OTP = '123456';
 
 function CheckEmail() {
   const location = useLocation();
@@ -75,8 +73,7 @@ function CheckEmail() {
     inputRefs.current[lastFilledIndex]?.focus();
   };
 
-  // Verify OTP
-  const handleVerify = (e) => {
+  const handleVerify = async (e) => {
     e.preventDefault();
     const enteredOtp = otp.join('');
 
@@ -87,60 +84,57 @@ function CheckEmail() {
 
     setLoading(true);
 
-    // Simulate verification delay (mock backend)
-    setTimeout(() => {
-      setLoading(false);
+    // Call real Supabase OTP verification!
+    const result = await verifyOtp({
+      email: email,
+      token: enteredOtp,
+    });
 
-      if (enteredOtp === MOCK_OTP) {
-        // ✅ Success — redirect to dashboard
-        navigate('/dashboard');
-      } else {
-        // ❌ Wrong code
-        setError('Invalid code. Please try again.');
-        setOtp(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-      }
-    }, 800);
+    setLoading(false);
+
+    if (result.success) {
+      // Success! User is now verified and logged in
+      navigate('/dashboard');
+    } else {
+      setError(result.error || 'Invalid code. Please try again.');
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+    }
   };
 
-  // Resend OTP
-  const handleResend = () => {
+  const handleResend = async () => {
     setResendDisabled(true);
     setTimer(30);
     setOtp(['', '', '', '', '', '']);
     setError('');
     inputRefs.current[0]?.focus();
-    // TODO: Call your backend to resend the code
-    console.log('Resending OTP to:', email);
+    
+    // Call real Supabase resend!
+    const result = await resendOtp(email);
+    
+    if (!result.success) {
+      setError(result.error || 'Failed to resend code.');
+    }
   };
 
   return (
-    <div className="check-email-container">
-      <div className="check-email-card">
-        {/* Email Icon */}
-        <div className="check-email-icon">
-          <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        </div>
-
-        {/* Title */}
-        <h1 className="check-email-title">Verify Your Email</h1>
-
-        {/* Message */}
-        <p className="check-email-message">
-          We've sent a 6-digit code to:
-        </p>
-        <div className="check-email-address">
-          {email}
-        </div>
-        <p className="check-email-message">
-          Enter the code below to verify your account.
+    <div className="signup-container">
+      <div className="signup-card">
+        <h1 className="signup-title">Check Your Email</h1>
+        <p className="signup-subtitle">
+          We sent a 6-digit code to <strong>{email}</strong>
         </p>
 
-        {/* OTP Form */}
-        <form onSubmit={handleVerify}>
-          <div className="otp-input-group" onPaste={handlePaste}>
+        <form onSubmit={handleVerify} className="signup-form">
+          <div
+            className="otp-container"
+            style={{
+              display: 'flex',
+              gap: '8px',
+              justifyContent: 'center',
+              marginBottom: '16px'
+            }}
+          >
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -151,38 +145,52 @@ function CheckEmail() {
                 value={digit}
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
-                className={`otp-input ${digit ? 'filled' : ''} ${error ? 'error' : ''}`}
+                onPaste={handlePaste}
                 disabled={loading}
+                style={{
+                  width: '45px',
+                  height: '50px',
+                  textAlign: 'center',
+                  fontSize: '20px',
+                  border: '1px solid #ccc',
+                  borderRadius: '8px'
+                }}
               />
             ))}
           </div>
 
-          {error && <p className="error-message">{error}</p>}
+          {error && (
+            <p style={{ color: '#dc2626', fontSize: '13px', marginBottom: '8px', textAlign: 'center' }}>
+              {error}
+            </p>
+          )}
 
-          <button
-            type="submit"
-            className="verify-button"
-            disabled={loading || otp.join('').length !== 6}
-          >
-            {loading ? 'Verifying…' : 'Verify Email'}
+          <button type="submit" className="submit-button" disabled={loading}>
+            {loading ? 'Verifying…' : 'Verify Code'}
           </button>
         </form>
 
-        {/* Resend Section */}
-        <div className="resend-section">
+        <p className="login-link" style={{ textAlign: 'center', marginTop: '16px' }}>
           Didn't receive the code?{' '}
           <button
-            className="resend-link"
+            type="button"
             onClick={handleResend}
             disabled={resendDisabled}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: resendDisabled ? '#999' : '#2563eb',
+              cursor: resendDisabled ? 'not-allowed' : 'pointer',
+              textDecoration: 'underline',
+              padding: 0
+            }}
           >
             {resendDisabled ? `Resend in ${timer}s` : 'Resend Code'}
           </button>
-        </div>
+        </p>
 
-        {/* Back to Login */}
-        <p className="back-to-login">
-          <Link to="/login">← Back to Login</Link>
+        <p className="login-link" style={{ textAlign: 'center', marginTop: '8px' }}>
+          <Link to="/signup">← Back to Sign Up</Link>
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../../styles/auth.css';   // ← UPDATED PATH
+import { signUp } from '../../services/authService';
+import '../../styles/auth.css';
 
 function SignUpForm() {
   const navigate = useNavigate();
@@ -19,10 +20,10 @@ function SignUpForm() {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic validation
+    // Validation
     if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
       setError('Please fill in all fields.');
       return;
@@ -38,11 +39,21 @@ function SignUpForm() {
 
     setLoading(true);
 
-    // Simulate account creation — replace with your real signup call
-    setTimeout(() => {
-      setLoading(false);
+    // Call Supabase!
+    const result = await signUp({
+      fullName: formData.fullName,
+      email: formData.email,
+      password: formData.password,
+    });
+
+    setLoading(false);
+
+    if (result.success) {
+      // Navigate to OTP verification page with email
       navigate('/check-email', { state: { email: formData.email } });
-    }, 800);
+    } else {
+      setError(result.error || 'Sign up failed. Please try again.');
+    }
   };
 
   return (

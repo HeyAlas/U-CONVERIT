@@ -86,7 +86,7 @@ function Paraphraser() {
       const text = await navigator.clipboard.readText();
       setInputText(text);
       inputRef.current?.focus();
-    } catch (error) {
+    } catch {
       console.error("Clipboard access denied");
     }
   };

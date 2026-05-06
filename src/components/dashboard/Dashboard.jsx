@@ -7,6 +7,7 @@ import Humanizer from './tools/Humanizer';
 import OCR from './tools/OCR';
 import QuizMaker from './tools/QuizMaker';
 import ConvertPDF from './tools/ConvertPDF';
+import { logout } from '../../services/authService';
 import '../../styles/dashboard.css';
 
 
@@ -91,8 +92,10 @@ function Dashboard() {
     ? 'Quiz History'
     : `${current?.label} Tool`;
 
-  const handleLogout = (e) => {
+  const handleLogout = async (e) => {
     e.preventDefault();
+    
+    await logout();   // Sign out from Supabase
     sessionStorage.clear();
     navigate('/login');
   };
