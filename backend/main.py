@@ -3,7 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import paraphraser, humanizer  # ← add humanizer here
+from routers import paraphraser, humanizer, ocr  # ← add ocr
 
 app = FastAPI(title="UConvertIT API", version="1.0.0")
 
@@ -19,7 +19,8 @@ app.add_middleware(
 )
 
 app.include_router(paraphraser.router, prefix="/api", tags=["Paraphraser"])
-app.include_router(humanizer.router, prefix="/api", tags=["Humanizer"])  # ← add this
+app.include_router(humanizer.router, prefix="/api", tags=["Humanizer"])
+app.include_router(ocr.router, prefix="/api", tags=["OCR"])  # ← add this
 
 @app.get("/")
 def root():

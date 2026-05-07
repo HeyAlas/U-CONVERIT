@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import '../../../styles/dashboard.css';
 
-const OCR_API_KEY = "K84088987388957";
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 function OCR() {
@@ -87,28 +87,37 @@ function OCR() {
     setSuccessFlash(false);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("language", "eng");
-      formData.append("isOverlayRequired", "false");
+      const { supabase } = await import('../../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
 
-      const response = await fetch("https://api.ocr.space/parse/image", {
-        method: "POST",
-        headers: { apikey: OCR_API_KEY },
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      if (user?.id) {
+        formData.append('user_id', user.id);
+      }
+
+      const response = await fetch('http://localhost:8000/api/ocr', {
+        method: 'POST',
         body: formData,
       });
 
       const data = await response.json();
-      const text = data?.ParsedResults?.[0]?.ParsedText || "No text found in image.";
-      setOutputText(text);
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to extract text');
+      }
+
+      setOutputText(data.text);
       setSuccessFlash(true);
       setTimeout(() => setSuccessFlash(false), 600);
-    } catch (err) {
-      setError("Error connecting to OCR API. Please check your internet connection.");
-      setOutputText("");
-    }
 
-    setIsProcessing(false);
+    } catch (err) {
+      console.error('OCR error:', err);
+      setError(`❌ ${err.message}`);
+      setOutputText('');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCopy = async () => {
