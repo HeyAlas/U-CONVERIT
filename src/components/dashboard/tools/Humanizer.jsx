@@ -60,19 +60,45 @@ function Humanizer() {
     return 'hm-char-count';
   };
 
-  const handleHumanize = () => {
-    if (!inputText.trim()) return;
+  const handleHumanize = async () => {
+    if (!inputText.trim() || isProcessing) return;
+
     setIsProcessing(true);
     setHumanScore(null);
     setSuccessFlash(false);
+    setOutputText('');
 
-    setTimeout(() => {
-      setOutputText(`[${strength.toUpperCase()} MODE] This version of your text has been rewritten to bypass AI detection while maintaining your core message...`);
-      setHumanScore(Math.floor(Math.random() * (99 - 88 + 1) + 88));
-      setIsProcessing(false);
+    try {
+      const { supabase } = await import('../../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const response = await fetch('http://localhost:8000/api/humanize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: inputText,
+          strength: strength,
+          user_id: user?.id || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to humanize text');
+      }
+
+      setOutputText(data.result);
+      setHumanScore(data.human_score);
       setSuccessFlash(true);
       setTimeout(() => setSuccessFlash(false), 600);
-    }, 3000);
+
+    } catch (err) {
+      console.error('Humanize error:', err);
+      setOutputText(`❌ Error: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePaste = async () => {
