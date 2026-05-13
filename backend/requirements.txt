@@ -4,3 +4,7 @@ python-dotenv
 google-generativeai
 supabase
 pydantic
+python-multipart
+httpx
+pdf2docx
+pdfplumber
