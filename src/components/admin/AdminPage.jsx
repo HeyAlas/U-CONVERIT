@@ -2,46 +2,20 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/admin.css';
 
-/* ── Data ── */
-const TOOLS = [
-  { id: 'para', name: 'Paraphraser',  color: '#8B0E0E', total: 5241 },
-  { id: 'hum',  name: 'Humanizer',    color: '#3b82f6', total: 3187 },
-  { id: 'ocr',  name: 'OCR',          color: '#22c55e', total: 1954 },
-  { id: 'quiz', name: 'Quiz Maker',   color: '#f59e0b', total: 1102 },
-  { id: 'pdf',  name: 'PDF Convert',  color: '#a855f7', total:  876 },
-];
-
-const USERS = [
-  { name: 'Maria Santos',    email: 'm.santos@cit.edu',   status: 'active',   tool: 'Paraphraser', uses: 142, joined: 'Jan 12' },
-  { name: 'Juan dela Cruz',  email: 'j.delacruz@cit.edu', status: 'active',   tool: 'OCR',         uses:  38, joined: 'Feb 5'  },
-  { name: 'Ana Reyes',       email: 'a.reyes@cit.edu',    status: 'active',   tool: 'Humanizer',   uses:  97, joined: 'Nov 20' },
-  { name: 'Carlo Mendez',    email: 'c.mendez@cit.edu',   status: 'inactive', tool: 'Quiz Maker',  uses:  14, joined: 'Mar 1'  },
-  { name: 'Liza Villanueva', email: 'l.vill@cit.edu',     status: 'active',   tool: 'PDF Convert', uses: 205, joined: 'Oct 8'  },
-  { name: 'Miguel Torres',   email: 'm.torres@cit.edu',   status: 'active',   tool: 'Paraphraser', uses:  51, joined: 'Apr 14' },
-  { name: 'Grace Ocampo',    email: 'g.ocampo@cit.edu',   status: 'active',   tool: 'Humanizer',   uses: 173, joined: 'Dec 3'  },
-];
-
-const PERIODS = {
-  daily:   ['12a','2a','4a','6a','8a','10a','12p','2p','4p','6p','8p','10p'],
-  weekly:  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-  monthly: Array.from({ length: 30 }, (_, i) => String(i + 1)),
-  yearly:  ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+/* ── Tool config ── */
+const TOOL_CONFIG = {
+  paraphraser: { name: 'Paraphraser', color: '#8B0E0E' },
+  humanizer:   { name: 'Humanizer',   color: '#3b82f6' },
+  ocr:         { name: 'OCR',         color: '#22c55e' },
+  quiz_maker:  { name: 'Quiz Maker',  color: '#f59e0b' },
+  pdf_convert: { name: 'PDF Convert', color: '#a855f7' },
 };
-
-function rnd(a, b) { return Math.floor(Math.random() * (b - a) + a); }
-function genData(p) {
-  return PERIODS[p].map(l => ({
-    l,
-    v: rnd(50, p === 'yearly' ? 9000 : p === 'monthly' ? 1200 : p === 'weekly' ? 800 : 160),
-  }));
-}
 
 /* ── Nav items ── */
 const NAV = [
   { label: 'Dashboard',     section: 'Overview' },
   { label: 'Analytics',     section: 'Overview' },
   { label: 'Users',         section: 'Management' },
-  { label: 'Tools',         section: 'Management' },
   { label: 'Activity Logs', section: 'Management' },
 ];
 
@@ -61,11 +35,6 @@ const IconUsers = () => (
   <svg className="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
     <circle cx="9" cy="7" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
     <circle cx="18" cy="8" r="2"/><path d="M18 14c2.2 0 4 1.6 4 3.6"/>
-  </svg>
-);
-const IconTools = () => (
-  <svg className="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
   </svg>
 );
 const IconLogs = () => (
@@ -91,7 +60,6 @@ const NAV_ICONS = {
   Dashboard: <IconGrid/>,
   Analytics: <IconChart/>,
   Users: <IconUsers/>,
-  Tools: <IconTools/>,
   'Activity Logs': <IconLogs/>
 };
 
@@ -99,15 +67,34 @@ const NAV_ICONS = {
    SUB-COMPONENTS
 ══════════════════════════════════════════ */
 
-function StatCards() {
+function StatCards({ stats }) {
   const cards = [
-    { l: 'Total Users', v: '2,847', c: '+12%', up: true, p: 'vs last month', bg: '#fff1f1', ic: '#8B0E0E',
-      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="8" r="2"/></svg> },
-    { l: 'Conversions Today', v: '1,203', c: '+23%', up: true, p: 'vs yesterday', bg: '#f0faf0', ic: '#16a34a',
-      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16"><polyline points="3 17 9 11 13 15 21 7"/></svg> },
-    { l: 'Avg. Session', v: '4m 32s', c: '-0.4%', up: false, p: 'vs last week', bg: '#eff6ff', ic: '#3b82f6',
-      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+    {
+      l: 'Total Users', v: stats.total_users.toLocaleString(),
+      c: `+${stats.today_signups} today`, up: true, p: 'registered users',
+      bg: '#fff1f1', ic: '#8B0E0E',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+    },
+    {
+      l: 'Total Conversions', v: stats.total_conversions.toLocaleString(),
+      c: `${stats.today_conversions} today`, up: true, p: 'all tool uses',
+      bg: '#f0faf0', ic: '#16a34a',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16"><polyline points="3 17 9 11 13 15 21 7"/></svg>
+    },
+    {
+      l: 'Avg. Response', v: `${stats.avg_duration_sec}s`,
+      c: `${stats.week_conversions} this week`, up: true, p: 'average processing time',
+      bg: '#eff6ff', ic: '#3b82f6',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    },
+    {
+      l: 'Avg. Quiz Score', v: `${stats.avg_quiz_score}%`,
+      c: `${stats.total_quizzes_taken} attempts`, up: true, p: 'across all quizzes',
+      bg: '#fef9ee', ic: '#f59e0b',
+      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h.01M9 12h.01M9 15h.01M13 9h3M13 12h3M13 15h3" strokeLinecap="round"/></svg>
+    },
   ];
+
   return (
     <div className="stats-row">
       {cards.map((x, i) => (
@@ -115,7 +102,7 @@ function StatCards() {
           <div className="stat-label">{x.l}</div>
           <div className="stat-val">{x.v}</div>
           <div className="stat-sub">
-            <span className={`stat-chg ${x.up ? 'up' : 'dn'}`}>{x.up ? '▲' : '▼'} {x.c}</span>
+            <span className={`stat-chg ${x.up ? 'up' : 'dn'}`}>{x.c}</span>
             <span className="stat-per">{x.p}</span>
           </div>
           <div className="stat-icon-wrap" style={{ background: x.bg }}>
@@ -127,59 +114,28 @@ function StatCards() {
   );
 }
 
-function RealtimePanel({ liveN, rtC }) {
-  const max = Math.max(...Object.values(rtC), 1);
-  return (
-    <div className="panel">
-      <div className="ph">
-        <div className="ptitle"><span className="green-dot" /> Real-Time Usage</div>
-        <span className="chip chip-g">{liveN} online</span>
-      </div>
-      <div className="rt-grid">
-        {TOOLS.map(t => (
-          <div key={t.id} className="rt-tool">
-            <div className="rt-tname">{t.name}</div>
-            <div className="rt-tval">{rtC[t.id]}</div>
-            <div className="rt-tbar">
-              <div className="rt-tfill" style={{ width: `${(rtC[t.id] / max) * 100}%`, background: t.color }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="rt-bottom">
-        <div>
-          <div className="rt-big">{liveN}</div>
-          <div className="rt-big-lbl">active users now</div>
-        </div>
-        <div className="rt-bars">
-          {TOOLS.map(t => (
-            <div key={t.id}>
-              <div className="rt-brow-meta">
-                <span>{t.name}</span>
-                <span>{rtC[t.id]} users</span>
-              </div>
-              <div className="rt-brow-track">
-                <div className="rt-brow-fill" style={{ width: `${(rtC[t.id] / Math.max(liveN, 1)) * 100}%`, background: t.color }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChartPanel() {
+function ChartPanel({ dailyUsage, monthlyUsage }) {
   const [period, setPeriod] = useState('weekly');
-  const data = genData(period);
+
+  const getData = () => {
+    if (period === 'weekly') {
+      return Object.entries(dailyUsage).map(([l, v]) => ({ l, v }));
+    }
+    if (period === 'monthly' || period === 'yearly') {
+      return Object.entries(monthlyUsage).map(([l, v]) => ({ l, v }));
+    }
+    return Object.entries(dailyUsage).map(([l, v]) => ({ l, v }));
+  };
+
+  const data = getData();
   const max = Math.max(...data.map(d => d.v), 1);
-  const showEvery = data.length > 14 ? Math.ceil(data.length / 10) : 1;
+
   return (
     <div className="panel">
       <div className="ph">
         <div className="ptitle">Usage Analytics</div>
         <div className="tabs">
-          {['daily','weekly','monthly','yearly'].map(p => (
+          {['weekly', 'monthly'].map(p => (
             <button key={p} className={`tab${period === p ? ' on' : ''}`} onClick={() => setPeriod(p)}>
               {p[0].toUpperCase() + p.slice(1)}
             </button>
@@ -198,7 +154,7 @@ function ChartPanel() {
                 borderTop: `2px solid ${i === data.length - 1 ? '#c51d1d' : '#c8c8dc'}`,
               }}
             />
-            <div className="bc-lbl">{i % showEvery === 0 ? d.l : ''}</div>
+            <div className="bc-lbl">{d.l}</div>
           </div>
         ))}
       </div>
@@ -206,11 +162,24 @@ function ChartPanel() {
   );
 }
 
-function DonutPanel() {
-  const total = TOOLS.reduce((s, t) => s + t.total, 0);
+function DonutPanel({ toolCounts }) {
+  const tools = Object.entries(toolCounts).map(([name, count]) => ({
+    id: name,
+    name: TOOL_CONFIG[name]?.name || name,
+    color: TOOL_CONFIG[name]?.color || '#888',
+    total: count,
+  }));
+
+  const total = tools.reduce((s, t) => s + t.total, 0) || 1;
   const r = 50, cx = 60, cy = 60, circ = 2 * Math.PI * r;
   let off = 0;
-  const slices = TOOLS.map(t => { const d = (t.total / total) * circ; const s = { ...t, d, off }; off += d; return s; });
+  const slices = tools.map(t => {
+    const d = (t.total / total) * circ;
+    const s = { ...t, d, off };
+    off += d;
+    return s;
+  });
+
   return (
     <div className="panel">
       <div className="ph"><div className="ptitle">Tool Breakdown</div></div>
@@ -223,7 +192,7 @@ function DonutPanel() {
           ))}
         </svg>
         <div className="donut-legend">
-          {TOOLS.map(t => (
+          {tools.map(t => (
             <div key={t.id} className="leg-row">
               <div className="leg-l">
                 <div className="leg-sq" style={{ background: t.color }} />
@@ -238,50 +207,140 @@ function DonutPanel() {
   );
 }
 
-function UsersPanel() {
+function UsersPanel({ users }) {
   const [search, setSearch] = useState('');
   const [filterTool, setFilterTool] = useState('');
 
-  const filtered = USERS.filter(u => {
-    const ms = !search || u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search);
-    const mf = !filterTool || u.tool === filterTool;
+  const filtered = users.filter(u => {
+    const ms = !search ||
+      (u.full_name || '').toLowerCase().includes(search) ||
+      (u.email || '').toLowerCase().includes(search);
+    const mf = !filterTool || u.most_used_tool === filterTool;
     return ms && mf;
   });
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const toolNames = [...new Set(users.map(u => u.most_used_tool).filter(Boolean))];
 
   return (
     <div className="panel">
       <div className="ph">
         <div className="ptitle">Registered Users</div>
-        <span className="chip chip-r">{USERS.length} total</span>
+        <span className="chip chip-r">{users.length} total</span>
       </div>
       <div className="tbl-ctrl">
         <input className="tbl-search" placeholder="Search name or email…"
           value={search} onChange={e => setSearch(e.target.value.toLowerCase())} />
         <select className="tbl-sel" value={filterTool} onChange={e => setFilterTool(e.target.value)}>
           <option value="">All Tools</option>
-          {['Paraphraser','Humanizer','OCR','Quiz Maker','PDF Convert'].map(t => <option key={t}>{t}</option>)}
+          {toolNames.map(t => (
+            <option key={t} value={t}>{TOOL_CONFIG[t]?.name || t}</option>
+          ))}
         </select>
       </div>
       <table>
         <thead>
-          <tr>{['User','Status','Most Used Tool','Conversions','Joined',''].map(h => <th key={h}>{h}</th>)}</tr>
+          <tr>
+            {['User', 'Status', 'Most Used Tool', 'Total Uses', 'Quizzes', 'Joined'].map(h =>
+              <th key={h}>{h}</th>
+            )}
+          </tr>
         </thead>
         <tbody>
           {filtered.map((u, i) => (
             <tr key={i}>
               <td>
                 <div className="u-cell">
-                  <div className="u-av">{u.name[0]}</div>
-                  <div><div className="u-name">{u.name}</div><div className="u-email">{u.email}</div></div>
+                  <div className="u-av">{(u.full_name || '?')[0].toUpperCase()}</div>
+                  <div>
+                    <div className="u-name">{u.full_name || 'Unknown'}</div>
+                    <div className="u-email">{u.email}</div>
+                  </div>
                 </div>
               </td>
-              <td><span className={`bdg ${u.status === 'active' ? 'bdg-on' : 'bdg-off'}`}>{u.status}</span></td>
-              <td><span className="tool-tag">{u.tool}</span></td>
-              <td><span className="mono">{u.uses.toLocaleString()}</span></td>
-              <td style={{ fontSize: '12px', color: '#bbb' }}>{u.joined}</td>
-              <td><button className="view-btn">View</button></td>
+              <td>
+                <span className={`bdg ${u.status === 'active' ? 'bdg-on' : 'bdg-off'}`}>
+                  {u.status}
+                </span>
+              </td>
+              <td>
+                <span className="tool-tag">
+                  {TOOL_CONFIG[u.most_used_tool]?.name || u.most_used_tool || 'None'}
+                </span>
+              </td>
+              <td><span className="mono">{u.total_uses}</span></td>
+              <td><span className="mono">{u.quiz_count}</span></td>
+              <td style={{ fontSize: '12px', color: '#bbb' }}>{formatDate(u.created_at)}</td>
             </tr>
           ))}
+          {filtered.length === 0 && (
+            <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>No users found</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ActivityLogs({ logs }) {
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="panel">
+      <div className="ph">
+        <div className="ptitle">Recent Activity</div>
+        <span className="chip chip-r">{logs.length} entries</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            {['User', 'Tool', 'Input', 'Output', 'Duration', 'Status', 'Time'].map(h =>
+              <th key={h}>{h}</th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {logs.map((log, i) => (
+            <tr key={i}>
+              <td>
+                <div className="u-cell">
+                  <div className="u-av">{(log.user_name || '?')[0].toUpperCase()}</div>
+                  <div>
+                    <div className="u-name">{log.user_name}</div>
+                    <div className="u-email">{log.user_email}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span className="tool-tag">
+                  {TOOL_CONFIG[log.tool_name]?.name || log.tool_name}
+                </span>
+              </td>
+              <td><span className="mono">{(log.input_size || 0).toLocaleString()}</span></td>
+              <td><span className="mono">{(log.output_size || 0).toLocaleString()}</span></td>
+              <td><span className="mono">{log.duration_ms}ms</span></td>
+              <td>
+                <span className={`bdg ${log.status === 'success' ? 'bdg-on' : 'bdg-off'}`}>
+                  {log.status}
+                </span>
+              </td>
+              <td style={{ fontSize: '12px', color: '#bbb' }}>{formatDate(log.created_at)}</td>
+            </tr>
+          ))}
+          {logs.length === 0 && (
+            <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>No activity yet</td></tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -291,16 +350,33 @@ function UsersPanel() {
 /* ══════════════════════════════════════════
    MAIN ADMIN PAGE
 ══════════════════════════════════════════ */
-const SIDEBAR_MIN = 60;   // icon-only collapsed width
-const SIDEBAR_MAX = 420;  // max drag width
+const SIDEBAR_MIN = 60;
+const SIDEBAR_MAX = 420;
 const SIDEBAR_DEFAULT = 288;
 
 export default function AdminPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState('Dashboard');
   const [clock, setClock] = useState('');
-  const [liveN, setLiveN] = useState(47);
-  const [rtC, setRtC] = useState({ para: 18, hum: 11, ocr: 7, quiz: 5, pdf: 6 });
+  const [loading, setLoading] = useState(true);
+
+  // Real data from backend
+  const [stats, setStats] = useState({
+    total_users: 0,
+    total_conversions: 0,
+    today_conversions: 0,
+    today_signups: 0,
+    week_conversions: 0,
+    avg_duration_sec: 0,
+    total_quizzes_generated: 0,
+    total_quizzes_taken: 0,
+    avg_quiz_score: 0,
+  });
+  const [toolCounts, setToolCounts] = useState({});
+  const [dailyUsage, setDailyUsage] = useState({});
+  const [monthlyUsage, setMonthlyUsage] = useState({});
+  const [users, setUsers] = useState([]);
+  const [recentLogs, setRecentLogs] = useState([]);
 
   // Resizable sidebar
   const [sidebarW, setSidebarW] = useState(SIDEBAR_DEFAULT);
@@ -308,7 +384,7 @@ export default function AdminPage() {
   const dragStartX = useRef(0);
   const dragStartW = useRef(0);
 
-  const collapsed = sidebarW <= SIDEBAR_MIN + 10; // treat very narrow as "collapsed"
+  const collapsed = sidebarW <= SIDEBAR_MIN + 10;
 
   const onDragStart = (e) => {
     isDragging.current = true;
@@ -330,7 +406,6 @@ export default function AdminPage() {
       isDragging.current = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      // Snap: if dragged below threshold, fully collapse; if above, keep value
       setSidebarW(w => w < SIDEBAR_MIN + 30 ? SIDEBAR_MIN : w);
     };
     window.addEventListener('mousemove', onMove);
@@ -341,19 +416,40 @@ export default function AdminPage() {
     };
   }, []);
 
-  // Double-click handle to toggle between collapsed and default
   const onHandleDblClick = () => {
     setSidebarW(w => (w <= SIDEBAR_MIN + 10 ? SIDEBAR_DEFAULT : SIDEBAR_MIN));
   };
 
-  const adminRaw = sessionStorage.getItem('adminUser');
-  const admin = adminRaw ? JSON.parse(adminRaw) : { name: 'Admin', role: 'Super Administrator' };
-  const initials = admin.name ? admin.name[0].toUpperCase() : 'A';
-
+  // Fetch admin data
   useEffect(() => {
-    if (!adminRaw) navigate('/login');
+    async function fetchAdminData() {
+      try {
+        const res = await fetch('http://localhost:8000/api/admin/stats');
+        const data = await res.json();
+
+        if (data.success) {
+          setStats(data.stats);
+          setToolCounts(data.tool_counts);
+          setDailyUsage(data.daily_usage);
+          setMonthlyUsage(data.monthly_usage);
+          setUsers(data.users);
+          setRecentLogs(data.recent_logs);
+        }
+      } catch (err) {
+        console.error('Failed to fetch admin data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAdminData();
+
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchAdminData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
+  // Clock
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     tick();
@@ -361,47 +457,56 @@ export default function AdminPage() {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => setLiveN(n => Math.max(10, Math.min(200, n + (rnd(0, 5) - 2)))), 2500);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const keys = Object.keys(rtC);
-      const k = keys[rnd(0, keys.length)];
-      setRtC(prev => ({ ...prev, [k]: Math.max(0, prev[k] + (Math.random() > 0.4 ? 1 : -1)) }));
-    }, 1800);
-    return () => clearInterval(id);
-  }, []);
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error(err);
+    }
     sessionStorage.removeItem('adminUser');
     navigate('/login');
   };
 
+  const adminRaw = sessionStorage.getItem('adminUser');
+  const admin = adminRaw ? JSON.parse(adminRaw) : { name: 'Admin', role: 'Super Administrator' };
+  const initials = admin.name ? admin.name[0].toUpperCase() : 'A';
+
   const renderContent = () => {
+    if (loading) {
+      return (
+        <div style={{ padding: '48px', textAlign: 'center', color: '#888' }}>
+          Loading dashboard data...
+        </div>
+      );
+    }
+
     switch (page) {
       case 'Dashboard':
-        return (<>
-          <StatCards />
-          <RealtimePanel liveN={liveN} rtC={rtC} />
-          <div className="two-col">
-            <ChartPanel />
-            <DonutPanel />
-          </div>
-          <UsersPanel />
-        </>);
+        return (
+          <>
+            <StatCards stats={stats} />
+            <div className="two-col">
+              <ChartPanel dailyUsage={dailyUsage} monthlyUsage={monthlyUsage} />
+              <DonutPanel toolCounts={toolCounts} />
+            </div>
+            <UsersPanel users={users} />
+          </>
+        );
       case 'Analytics':
-        return (<>
-          <StatCards />
-          <ChartPanel />
-          <DonutPanel />
-        </>);
+        return (
+          <>
+            <StatCards stats={stats} />
+            <ChartPanel dailyUsage={dailyUsage} monthlyUsage={monthlyUsage} />
+            <DonutPanel toolCounts={toolCounts} />
+          </>
+        );
       case 'Users':
-        return <UsersPanel />;
+        return <UsersPanel users={users} />;
+      case 'Activity Logs':
+        return <ActivityLogs logs={recentLogs} />;
       default:
-        return <div style={{ padding: '48px', color: '#ccc', fontSize: '14px' }}>Section coming soon.</div>;
+        return <div style={{ padding: '48px', color: '#ccc' }}>Section coming soon.</div>;
     }
   };
 
@@ -414,7 +519,6 @@ export default function AdminPage() {
         className={`sidebar${collapsed ? ' sb-collapsed' : ''}`}
         style={{ width: sidebarW, minWidth: sidebarW, maxWidth: sidebarW }}
       >
-        {/* Logo / Brand */}
         <div className="sb-logo">
           <div className="sb-brand">
             <div className="logo-circle">
@@ -430,7 +534,6 @@ export default function AdminPage() {
           {!collapsed && <div className="sb-sub">Control Panel</div>}
         </div>
 
-        {/* Navigation */}
         <nav className="sb-nav">
           {sections.map(sec => (
             <div key={sec} className="sb-section-group">
@@ -452,7 +555,6 @@ export default function AdminPage() {
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="sb-foot">
           <div className="sb-av" title={collapsed ? admin.name : undefined}>{initials}</div>
           {!collapsed && (
@@ -468,7 +570,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* ── Drag Handle ── */}
         <div
           className="sb-resize-handle"
           onMouseDown={onDragStart}
@@ -481,29 +582,22 @@ export default function AdminPage() {
 
       {/* ── Main ── */}
       <div className="adm-main">
-        {/* Topbar */}
         <div className="topbar">
-          {/* Left: empty spacer to help center the title */}
           <div className="tb-left" />
-
-          {/* Center: Page title */}
           <div className="topbar-title">{page}</div>
-
-          {/* Right: live indicator, clock, bell — all pushed to the far right */}
           <div className="tb-right">
             <div className="tb-live">
               <div className="live-dot" />
-              <span className="tb-live-txt">{liveN} online</span>
+              <span className="tb-live-txt">{stats.total_users} users</span>
             </div>
             <div className="tb-clock">{clock}</div>
             <div className="tb-bell">
               <IconBell />
-              <div className="tb-badge">3</div>
+              <div className="tb-badge">{recentLogs.length}</div>
             </div>
           </div>
         </div>
 
-        {/* Content */}
         <div className="adm-content">
           {renderContent()}
         </div>

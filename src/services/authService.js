@@ -85,6 +85,7 @@ export async function resendOtp(email) {
 // ─────────────────────────────────────────
 export async function login({ email, password }) {
   try {
+    // 1. Sign in with Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -92,20 +93,54 @@ export async function login({ email, password }) {
 
     if (error) throw error;
 
-    // Get user role from our users table
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', data.user.id)
-      .single();
-
-    if (profileError) console.warn('Could not fetch user role:', profileError);
+    // 2. Fetch user role from BACKEND (bypasses RLS)
+    let role = 'user';
+    try {
+      const res = await fetch(`http://localhost:8000/api/profile/${data.user.id}`);
+      const profileData = await res.json();
+      
+      if (profileData.success && profileData.profile) {
+        role = profileData.profile.role || 'user';
+        console.log('✅ Role fetched from backend:', role);
+      } else {
+        console.warn('⚠️ Backend returned no profile, falling back to direct query');
+        
+        // 3. Fallback: Try Supabase direct query
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+        
+        if (userProfile) {
+          role = userProfile.role || 'user';
+          console.log('✅ Role fetched via Supabase fallback:', role);
+        }
+      }
+    } catch (fetchErr) {
+      console.warn('⚠️ Backend fetch failed:', fetchErr);
+      
+      // Fallback to direct Supabase query
+      try {
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+        
+        if (userProfile) {
+          role = userProfile.role || 'user';
+        }
+      } catch (e) {
+        console.error('All role fetch methods failed:', e);
+      }
+    }
 
     return { 
       success: true, 
       data: {
         ...data,
-        role: userProfile?.role || 'student',
+        role: role,
       }
     };
   } catch (error) {

@@ -35,7 +35,9 @@ function LoginForm() {
     setLoading(false);
 
     if (result.success) {
-      // Check if user is admin
+    console.log("🔍 FULL Login result:", result);
+    console.log("🔍 Role value:", result.data.role);
+    console.log("🔍 Type of role:", typeof result.data.role);
       if (result.data.role === 'admin' || result.data.role === 'super_admin') {
         // Save admin info for AdminPage
         sessionStorage.setItem('adminUser', JSON.stringify({
