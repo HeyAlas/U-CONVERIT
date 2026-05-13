@@ -70,7 +70,6 @@ async def save_quiz_to_supabase(
     questions: list,
     difficulty: str,
 ):
-    """Saves the generated quiz to the quizzes table and returns the quiz ID."""
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
 
@@ -83,7 +82,7 @@ async def save_quiz_to_supabase(
     payload = {
         "user_id": user_id,
         "title": title or f"Quiz - {time.strftime('%b %d, %Y')}",
-        "source_text": source_text[:5000],  # Cap at 5000 chars to save space
+        "source_text": source_text[:5000],
         "questions": questions,
         "total_questions": len(questions),
         "difficulty": difficulty,
@@ -96,7 +95,7 @@ async def save_quiz_to_supabase(
         result = r.json()
         if isinstance(result, list) and len(result) > 0:
             return result[0].get("id")
-    
+
     print(f"⚠️ Failed to save quiz: {r.status_code} - {r.text}")
     return None
 
@@ -131,6 +130,7 @@ async def log_tool_usage_to_supabase(
 
 
 # ── ENDPOINTS ──
+
 @router.post("/quiz/generate")
 async def generate_quiz(req: QuizGenerateRequest):
     if not req.content.strip():
@@ -175,7 +175,6 @@ async def generate_quiz(req: QuizGenerateRequest):
 
         duration_ms = int((time.time() - start) * 1000)
 
-        # Save quiz to database
         quiz_id = None
         if req.user_id:
             try:
@@ -186,7 +185,6 @@ async def generate_quiz(req: QuizGenerateRequest):
                     questions=data,
                     difficulty=req.difficulty or "medium",
                 )
-
                 await log_tool_usage_to_supabase(
                     user_id=req.user_id,
                     input_size=len(req.content),
@@ -198,7 +196,7 @@ async def generate_quiz(req: QuizGenerateRequest):
                 print(f"⚠️ DB save failed: {db_error}")
 
         return {
-            "success": True, 
+            "success": True,
             "questions": data,
             "quiz_id": quiz_id,
         }
@@ -217,7 +215,6 @@ async def generate_quiz(req: QuizGenerateRequest):
 
 @router.post("/quiz/attempt")
 async def save_quiz_attempt(req: QuizAttemptRequest):
-    """Saves a completed quiz attempt to the quiz_attempts table."""
     supabase_url = os.getenv("SUPABASE_URL")
     if not supabase_url:
         raise HTTPException(status_code=500, detail="Supabase not configured")
@@ -233,7 +230,7 @@ async def save_quiz_attempt(req: QuizAttemptRequest):
         "total": req.total,
         "answers": req.answers,
         "duration_seconds": req.duration_seconds,
-        "completed_at": datetime.now(timezone.utc).isoformat(),   # ← ADD THIS LINE
+        "completed_at": datetime.now(timezone.utc).isoformat(),
     }
 
     endpoint = f"{supabase_url}/rest/v1/quiz_attempts"
@@ -252,3 +249,70 @@ async def save_quiz_attempt(req: QuizAttemptRequest):
         )
 
     return {"success": True, "percentage": percentage}
+
+
+# ── ✅ QUIZ HISTORY ──
+@router.get("/quiz/history")
+async def get_quiz_history(user_id: str):
+    supabase_url = os.getenv("SUPABASE_URL")
+    if not supabase_url:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    headers = get_supabase_headers()
+    headers["Prefer"] = "return=representation"
+
+    try:
+        async with httpx.AsyncClient() as client:
+
+            # 1. Get all quiz attempts for this user
+            attempts_res = await client.get(
+                f"{supabase_url}/rest/v1/quiz_attempts",
+                headers=headers,
+                params={
+                    "user_id": f"eq.{user_id}",
+                    "order": "completed_at.desc"
+                }
+            )
+
+            if attempts_res.status_code != 200:
+                raise Exception("Failed to fetch attempts")
+
+            attempts = attempts_res.json()
+
+            if not attempts:
+                return {"success": True, "history": []}
+
+            # 2. Get quiz titles from quizzes table
+            quiz_ids = list(set([a["quiz_id"] for a in attempts]))
+
+            quizzes_res = await client.get(
+                f"{supabase_url}/rest/v1/quizzes",
+                headers=headers,
+                params={
+                    "id": f"in.({','.join(quiz_ids)})"
+                }
+            )
+
+            quizzes = quizzes_res.json() if quizzes_res.status_code == 200 else []
+
+            # 3. Map quiz_id → title
+            quiz_map = {q["id"]: q.get("title", "Untitled Quiz") for q in quizzes}
+
+            # 4. Combine attempts + titles
+            history = []
+            for a in attempts:
+                history.append({
+                    "id": a["id"],
+                    "topic": quiz_map.get(a["quiz_id"], "Unknown Quiz"),
+                    "score": f"{a['score']}/{a['total']}",
+                    "date": a["completed_at"]
+                })
+
+            return {
+                "success": True,
+                "history": history
+            }
+
+    except Exception as e:
+        print(f"❌ Quiz history error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch quiz history")
