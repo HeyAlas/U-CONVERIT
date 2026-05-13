@@ -44,19 +44,25 @@ const LOADING_PHRASES = [
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-function ConvertPDF() {
-  const [convertType, setConvertType] = useState('pdf-to-word');
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isDone, setIsDone] = useState(false);
-  const [loadPhrase, setLoadPhrase] = useState(LOADING_PHRASES[0]);
-  const [copied, setCopied] = useState(false);
-  const [outputFileName, setOutputFileName] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const [error, setError] = useState('');
-  const [successFlash, setSuccessFlash] = useState(false);
+const API_BASE = 'http://localhost:8000/api';
 
-  const fileInputRef = useRef(null);
+function ConvertPDF() {
+  const [convertType, setConvertType]     = useState('pdf-to-word');
+  const [selectedFile, setSelectedFile]   = useState(null);
+  const [isProcessing, setIsProcessing]   = useState(false);
+  const [isDone, setIsDone]               = useState(false);
+  const [loadPhrase, setLoadPhrase]       = useState(LOADING_PHRASES[0]);
+  const [copied, setCopied]               = useState(false);
+  const [outputFileName, setOutputFileName] = useState('');
+  const [isDragging, setIsDragging]       = useState(false);
+  const [error, setError]                 = useState('');
+  const [successFlash, setSuccessFlash]   = useState(false);
+
+  // ── Store real converted file blob for download ──
+  const convertedBlobRef = useRef(null);
+  const convertedTextRef = useRef(null);  // only for pdf-to-text
+
+  const fileInputRef   = useRef(null);
   const phraseInterval = useRef(null);
 
   const currentType = CONVERSION_TYPES.find(t => t.id === convertType);
@@ -65,6 +71,8 @@ function ConvertPDF() {
     setIsDone(false);
     setOutputFileName('');
     setError('');
+    convertedBlobRef.current = null;
+    convertedTextRef.current = null;
   };
 
   const handleTypeChange = (id) => {
@@ -76,21 +84,16 @@ function ConvertPDF() {
 
   const validateFile = (file) => {
     setError('');
-
-    // Check file size
     if (file.size > MAX_FILE_SIZE) {
       setError(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
       return false;
     }
-
-    // Check file extension
     const allowedExts = currentType.accept.split(',').map(e => e.trim());
     const fileExt = '.' + file.name.split('.').pop().toLowerCase();
     if (!allowedExts.includes(fileExt)) {
       setError(`Invalid file type. Please upload: ${currentType.hint}`);
       return false;
     }
-
     return true;
   };
 
@@ -112,15 +115,8 @@ function ConvertPDF() {
     if (file) handleFile(file);
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
+  const handleDragOver  = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
 
   const handleClear = (e) => {
     if (e) e.stopPropagation();
@@ -135,37 +131,102 @@ function ConvertPDF() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const handleConvert = () => {
+  // ─────────────────────────────────────────────
+  // ✅ REAL API CALL
+  // ─────────────────────────────────────────────
+  const handleConvert = async () => {
     if (!selectedFile || isProcessing) return;
 
     setIsProcessing(true);
     setIsDone(false);
     setSuccessFlash(false);
+    setError('');
+    convertedBlobRef.current = null;
+    convertedTextRef.current = null;
 
+    // Start loading phrase rotation
     let i = 0;
     phraseInterval.current = setInterval(() => {
       i = (i + 1) % LOADING_PHRASES.length;
       setLoadPhrase(LOADING_PHRASES[i]);
     }, 1200);
 
-    // Replace this timeout with your real API call
-    setTimeout(() => {
-      clearInterval(phraseInterval.current);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      // Add user_id if you have auth — replace null with real user_id
+      const userId = null; // e.g. from your auth context
+      if (userId) formData.append('user_id', userId);
+
+      const response = await fetch(`${API_BASE}/${convertType}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        // Try to get error message from backend
+        let errorMsg = 'Conversion failed. Please try again.';
+        try {
+          const errData = await response.json();
+          errorMsg = errData.detail || errorMsg;
+        } catch (_) {}
+
+        // Handle specific status codes
+        if (response.status === 400) throw new Error(errorMsg);
+        if (response.status === 429) throw new Error('Too many requests. Please wait and try again.');
+        if (response.status === 500) throw new Error('Server error. Please try again.');
+        throw new Error(errorMsg);
+      }
+
       const baseName = selectedFile.name.replace(/\.[^/.]+$/, '');
-      setOutputFileName(`${baseName}${currentType.outputExt}`);
+      const outName  = `${baseName}${currentType.outputExt}`;
+
+      // ── pdf-to-text returns JSON, others return file blob ──
+      if (convertType === 'pdf-to-text') {
+        const data = await response.json();
+        convertedTextRef.current = data.text;
+      } else {
+        const blob = await response.blob();
+        convertedBlobRef.current = blob;
+      }
+
+      setOutputFileName(outName);
       setIsProcessing(false);
       setIsDone(true);
       setSuccessFlash(true);
       setTimeout(() => setSuccessFlash(false), 600);
-    }, 3000);
+
+    } catch (err) {
+      setError(err.message || 'Something went wrong.');
+      setIsProcessing(false);
+      setIsDone(false);
+    } finally {
+      clearInterval(phraseInterval.current);
+    }
   };
 
+  // ─────────────────────────────────────────────
+  // ✅ REAL DOWNLOAD
+  // ─────────────────────────────────────────────
   const handleDownload = () => {
-    // Replace with real blob / presigned URL from your backend
-    const blob = new Blob([`Converted: ${selectedFile?.name}`], { type: 'text/plain' });
+    if (!isDone) return;
+
+    let blob;
+
+    if (convertType === 'pdf-to-text') {
+      // Text content → download as .txt
+      blob = new Blob([convertedTextRef.current], { type: 'text/plain' });
+    } else {
+      // Real converted file blob from backend
+      blob = convertedBlobRef.current;
+    }
+
+    if (!blob) return;
+
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const a   = document.createElement('a');
+    a.href     = url;
     a.download = outputFileName;
     a.click();
     URL.revokeObjectURL(url);
@@ -177,6 +238,9 @@ function ConvertPDF() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ─────────────────────────────────────────────
+  // UI — exactly the same as before
+  // ─────────────────────────────────────────────
   return (
     <div className="cp-container">
 
