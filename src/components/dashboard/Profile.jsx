@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../../styles/dashboard.css';
 
 // ── Inline SVG icons ──
@@ -36,94 +37,235 @@ const IconTrash = () => (
   </svg>
 );
 
+const IconLogOut = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={16} height={16}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round"/>
+    <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round"/>
+    <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 function Profile() {
+  const navigate = useNavigate();
+
   const [profile, setProfile] = useState({
-    fullName: 'Juan dela Cruz',
-    email: 'juan@cit.edu',
+    fullName: '',
+    email: '',
+    role: '',
+    avatarUrl: null,
+    createdAt: '',
   });
 
-  const [profilePic, setProfilePic] = useState(null); // null = show default icon
+  const [stats, setStats] = useState({
+    total_tools_used: 0,
+    most_used_tool: 'None',
+    tool_counts: {},
+    total_quizzes: 0,
+    avg_quiz_score: 0,
+    best_quiz_score: 0,
+    total_chars_processed: 0,
+  });
+
+  const [profilePic, setProfilePic] = useState(null);
   const [passwords, setPasswords] = useState({
     current: '',
     newPass: '',
     confirm: '',
   });
 
+  const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [savedProfile, setSavedProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
-
   const [savedPassword, setSavedPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
-
   const [picError, setPicError] = useState('');
+  const [uploadingPic, setUploadingPic] = useState(false);
 
   const fileInputRef = useRef(null);
 
-  const handleProfileSave = () => {
+  // ── Fetch profile on mount ──
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const { supabase } = await import('../../lib/supabase');
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          navigate('/login');
+          return;
+        }
+
+        const res = await fetch(`http://localhost:8000/api/profile/${user.id}`);
+        const data = await res.json();
+
+        if (data.success) {
+          setProfile({
+            fullName: data.profile.full_name || '',
+            email: data.profile.email || '',
+            role: data.profile.role || 'user',
+            avatarUrl: data.profile.avatar_url || null,
+            createdAt: data.profile.created_at || '',
+          });
+          setProfilePic(data.profile.avatar_url || null);
+          setStats(data.stats);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProfile();
+  }, [navigate]);
+
+  // ── Save profile changes ──
+  const handleProfileSave = async () => {
     setSavingProfile(true);
-    setTimeout(() => {
+
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const formData = new FormData();
+      formData.append('full_name', profile.fullName);
+
+      const res = await fetch(`http://localhost:8000/api/profile/${user.id}`, {
+        method: 'PUT',
+        body: formData,
+      });
+
+      if (res.ok) {
+        setSavedProfile(true);
+        setEditMode(false);
+        setTimeout(() => setSavedProfile(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+    } finally {
       setSavingProfile(false);
-      setSavedProfile(true);
-      setEditMode(false);
-      setTimeout(() => setSavedProfile(false), 3000);
-    }, 900);
+    }
   };
 
-  const handlePasswordSave = () => {
+  // ── Change password ──
+  const handlePasswordSave = async () => {
     setPasswordError('');
+
     if (!passwords.current) return setPasswordError('Please enter your current password.');
     if (passwords.newPass.length < 8) return setPasswordError('New password must be at least 8 characters.');
     if (passwords.newPass !== passwords.confirm) return setPasswordError('Passwords do not match.');
 
     setSavingPassword(true);
-    setTimeout(() => {
+
+    try {
+      const { supabase } = await import('../../lib/supabase');
+
+      const { error } = await supabase.auth.updateUser({
+        password: passwords.newPass,
+      });
+
+      if (error) {
+        setPasswordError(error.message);
+      } else {
+        setSavedPassword(true);
+        setPasswords({ current: '', newPass: '', confirm: '' });
+        setTimeout(() => setSavedPassword(false), 3000);
+      }
+    } catch (err) {
+      setPasswordError('Failed to update password.');
+    } finally {
       setSavingPassword(false);
-      setSavedPassword(true);
-      setPasswords({ current: '', newPass: '', confirm: '' });
-      setTimeout(() => setSavedPassword(false), 3000);
-    }, 900);
+    }
   };
 
-  // Handle profile picture upload
-  const handlePicChange = (e) => {
+  // ── Upload avatar ──
+  const handlePicChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setPicError('');
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setPicError('Please select an image file (JPG, PNG, etc.)');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setPicError('Image must be less than 5MB.');
       return;
     }
 
-    // Convert to base64 for preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfilePic(reader.result);
-    };
-    reader.readAsDataURL(file);
+    setUploadingPic(true);
+
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`http://localhost:8000/api/profile/${user.id}/avatar`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setProfilePic(data.avatar_url);
+        setProfile(p => ({ ...p, avatarUrl: data.avatar_url }));
+      } else {
+        setPicError('Failed to upload avatar.');
+      }
+    } catch (err) {
+      setPicError('Failed to upload avatar.');
+    } finally {
+      setUploadingPic(false);
+    }
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
+  const triggerFileInput = () => fileInputRef.current?.click();
 
   const handleRemovePic = () => {
     setProfilePic(null);
     setPicError('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // ── Sign Out ──
+  const handleSignOut = async () => {
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      await supabase.auth.signOut();
+      navigate('/login');
+    } catch (err) {
+      console.error('Sign out error:', err);
     }
   };
+
+  // ── Format date helper ──
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'Unknown';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="pf-container">
+        <div className="pf-wrapper">
+          <div className="pf-card" style={{ textAlign: 'center', padding: '3rem' }}>
+            <span className="pf-loader" /> Loading profile...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pf-container">
@@ -132,7 +274,6 @@ function Profile() {
         {/* ── Profile Header Card ── */}
         <div className="pf-card">
           <div className="pf-avatar-section">
-            {/* Clickable Avatar */}
             <div className="pf-avatar-wrapper" onClick={triggerFileInput} title="Click to change photo">
               {profilePic ? (
                 <img src={profilePic} alt={profile.fullName} className="pf-avatar-img" />
@@ -142,12 +283,17 @@ function Profile() {
                 </div>
               )}
               <div className="pf-avatar-overlay">
-                <IconCamera />
-                <span>Change</span>
+                {uploadingPic ? (
+                  <span className="pf-loader" />
+                ) : (
+                  <>
+                    <IconCamera />
+                    <span>Change</span>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -157,14 +303,18 @@ function Profile() {
             />
 
             <div className="pf-avatar-info">
-              <p className="pf-avatar-name">{profile.fullName}</p>
+              <p className="pf-avatar-name">{profile.fullName || 'No Name Set'}</p>
               <p className="pf-avatar-email">{profile.email}</p>
-              <span className="pf-member-badge">Student</span>
+              <span className="pf-member-badge">
+                {profile.role === 'admin' ? '👑 Admin' : '🎓 Student'}
+              </span>
+              <p style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                Member since {formatDate(profile.createdAt)}
+              </p>
 
-              {/* Action buttons */}
               <div className="pf-avatar-actions">
-                <button className="pf-pic-btn" onClick={triggerFileInput}>
-                  <IconCamera /> Upload Photo
+                <button className="pf-pic-btn" onClick={triggerFileInput} disabled={uploadingPic}>
+                  <IconCamera /> {uploadingPic ? 'Uploading...' : 'Upload Photo'}
                 </button>
                 {profilePic && (
                   <button className="pf-pic-btn pf-pic-btn-danger" onClick={handleRemovePic}>
@@ -176,7 +326,6 @@ function Profile() {
             </div>
           </div>
 
-          {/* Edit Name & Email */}
           <div className="pf-card-body">
             <div className="pf-form-row">
               <div className="pf-field">
@@ -195,8 +344,7 @@ function Profile() {
                   className="pf-input"
                   type="email"
                   value={profile.email}
-                  disabled={!editMode}
-                  onChange={e => setProfile(p => ({ ...p, email: e.target.value }))}
+                  disabled
                   placeholder="your@email.com"
                 />
               </div>
@@ -222,6 +370,65 @@ function Profile() {
                     : <><IconCheck /> Save Changes</>}
                 </button>
               </>
+            )}
+          </div>
+        </div>
+
+        {/* ── Stats Card ── */}
+        <div className="pf-card">
+          <div className="pf-card-header">
+            <p className="pf-card-title">📊 Your Activity</p>
+          </div>
+          <div className="pf-card-body">
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '1rem'
+            }}>
+              <div style={{ textAlign: 'center', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb' }}>
+                  {stats.total_tools_used}
+                </p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Tools Used</p>
+              </div>
+              <div style={{ textAlign: 'center', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a' }}>
+                  {stats.total_quizzes}
+                </p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Quizzes Taken</p>
+              </div>
+              <div style={{ textAlign: 'center', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
+                  {stats.avg_quiz_score}%
+                </p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Avg Quiz Score</p>
+              </div>
+              <div style={{ textAlign: 'center', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
+                  {stats.total_chars_processed.toLocaleString()}
+                </p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Chars Processed</p>
+              </div>
+            </div>
+
+            {Object.keys(stats.tool_counts).length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <p style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Tool Usage Breakdown:</p>
+                {Object.entries(stats.tool_counts).map(([tool, count]) => (
+                  <div key={tool} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '6px 12px',
+                    background: '#f8f9fa',
+                    borderRadius: '6px',
+                    marginBottom: '4px',
+                    fontSize: '13px'
+                  }}>
+                    <span style={{ textTransform: 'capitalize' }}>{tool.replace('_', ' ')}</span>
+                    <span style={{ fontWeight: '600' }}>{count} uses</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -278,6 +485,27 @@ function Profile() {
               {savingPassword
                 ? <><span className="pf-loader" /> Updating...</>
                 : <>Update Password</>}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Sign Out ── */}
+        <div className="pf-card">
+          <div className="pf-card-body" style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center' 
+          }}>
+            <div>
+              <p style={{ fontWeight: '600', marginBottom: '4px' }}>Sign Out</p>
+              <p style={{ fontSize: '13px', color: '#666' }}>Log out of your account on this device</p>
+            </div>
+            <button
+              className="pf-btn-secondary"
+              onClick={handleSignOut}
+              style={{ color: '#dc2626', borderColor: '#dc2626' }}
+            >
+              <IconLogOut /> Sign Out
             </button>
           </div>
         </div>

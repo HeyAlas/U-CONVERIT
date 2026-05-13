@@ -1,22 +1,14 @@
-import { useState, useCallback } from "react";
 import '../../../styles/dashboard.css';
+import { useState, useCallback, useRef, useEffect } from "react";
 
 const LETTERS = ["A", "B", "C", "D"];
-
-// ── MOCK DATA ──
-function generateMockQuiz(content, count) {
-  return Array.from({ length: count }).map((_, i) => ({
-    question: `Sample Question ${i + 1}: What is the main idea from your content?`,
-    choices: ["Option A", "Option B", "Option C", "Option D"],
-    correctIndex: Math.floor(Math.random() * 4),
-  }));
-}
 
 // ── SETUP SCREEN ──
 function SetupScreen({ onGenerate }) {
   const [content, setContent] = useState("");
   const [count, setCount] = useState(5);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handlePaste = async () => {
     try {
@@ -25,13 +17,37 @@ function SetupScreen({ onGenerate }) {
     } catch {}
   };
 
-  const handleGenerate = () => {
-    if (!content.trim()) return;
+  const handleGenerate = async () => {
+    if (!content.trim() || loading) return;
     setLoading(true);
-    setTimeout(() => {
-      onGenerate(generateMockQuiz(content, count));
+    setError("");
+
+    try {
+      const { supabase } = await import('../../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const res = await fetch("http://localhost:8000/api/quiz/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content,
+          count,
+          user_id: user?.id || null,
+          title: `Quiz - ${new Date().toLocaleDateString()}`,
+          difficulty: "medium",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to generate quiz");
+
+      onGenerate(data.questions, data.quiz_id);
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   };
 
   return (
@@ -88,6 +104,12 @@ function SetupScreen({ onGenerate }) {
               )}
             </button>
           </div>
+
+          {error && (
+            <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>
+              ❌ {error}
+            </div>
+          )}
         </div>
 
         <div className="qm-footer">
@@ -147,12 +169,10 @@ function QuizScreen({ questions, onFinish }) {
   return (
     <div className="qm-container">
       <div className="qm-panel">
-        {/* Progress bar */}
         <div className="qm-progress-wrap">
           <div className="qm-progress-fill" style={{ width: `${pct}%` }} />
         </div>
 
-        {/* Header */}
         <div className="qm-header">
           <span className="qm-title">
             Question {current + 1}
@@ -171,7 +191,6 @@ function QuizScreen({ questions, onFinish }) {
           </div>
         </div>
 
-        {/* Body */}
         <div className="qm-body">
           <p className="qm-question-text">{q.question}</p>
 
@@ -208,44 +227,116 @@ function QuizScreen({ questions, onFinish }) {
           )}
         </div>
 
-        {/* Footer */}
         <div className="qm-footer">
-            <button
-                className="qm-btn-secondary"
-                onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-                disabled={current === 0}
-            >
+          <button
+            className="qm-btn-secondary"
+            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+            disabled={current === 0}
+          >
             ← Back
-        </button>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-                {/* Show "See Results" if on last question and revealed, OR if all questions revealed */}
-                {(allRevealed || (isRevealed && current === total - 1)) && (
-                <button className="qm-btn-primary" onClick={handleFinish}>
-                    See Results 🎯
-                </button>
-                )}
-                
-                {!isRevealed ? (
-                <button className="qm-btn-primary" onClick={handleSubmit} disabled={chosen === null}>
-                    Submit
-                </button>
-                ) : current < total - 1 ? (
-                <button className="qm-btn-primary" onClick={handleNext}>Next →</button>
-                ) : null}
-            </div>
-            </div>
+          </button>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            {(allRevealed || (isRevealed && current === total - 1)) && (
+              <button className="qm-btn-primary" onClick={handleFinish}>
+                See Results 🎯
+              </button>
+            )}
+            
+            {!isRevealed ? (
+              <button className="qm-btn-primary" onClick={handleSubmit} disabled={chosen === null}>
+                Submit
+              </button>
+            ) : current < total - 1 ? (
+              <button className="qm-btn-primary" onClick={handleNext}>Next →</button>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 // ── RESULTS SCREEN ──
-function ResultsScreen({ results, onRetry, onNew }) {
+function ResultsScreen({ results, quizId, durationSeconds, onRetry, onNew }) {
   const correct = results.filter((r) => r.revealed && r.correct).length;
   const wrong = results.filter((r) => r.revealed && !r.correct).length;
   const skipped = results.filter((r) => !r.revealed).length;
   const total = results.length;
   const pct = Math.round((correct / total) * 100);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const saveAttempted = useRef(false);
+
+  // Auto-save attempt when results screen loads
+  const saveAttempt = useCallback(async () => {
+    console.log("🎯 saveAttempt called");
+    console.log("Quiz ID:", quizId);
+    console.log("Save attempted ref:", saveAttempted.current);
+
+    if (saveAttempted.current || !quizId) {
+      console.log("⏭️ Skipping save - already attempted or no quiz ID");
+      return;
+    }
+    saveAttempted.current = true;
+    setSaving(true);
+
+    try {
+      const { supabase } = await import('../../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      console.log("👤 User:", user?.id);
+
+      if (!user) {
+        console.warn("❌ No user logged in. Skipping attempt save.");
+        return;
+      }
+
+      const answers = results.map((r, i) => ({
+        question_index: i,
+        chosen: r.chosen,
+        correct: r.correct,
+        revealed: r.revealed,
+      }));
+
+      console.log("📤 Sending to backend:", {
+        quiz_id: quizId,
+        score: correct,
+        total: total,
+      });
+
+      const res = await fetch("http://localhost:8000/api/quiz/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quiz_id: quizId,
+          user_id: user.id,
+          score: correct,
+          total: total,
+          answers: answers,
+          duration_seconds: durationSeconds || 0,
+        }),
+      });
+
+      const data = await res.json();
+      console.log("📥 Response:", data);
+
+      if (res.ok) {
+        console.log("✅ Saved successfully!");
+        setSaved(true);
+      } else {
+        console.error("❌ Save failed:", data);
+      }
+    } catch (err) {
+      console.error("❌ Failed to save attempt:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [quizId, results, correct, total, durationSeconds]);
+
+  // Save once when component mounts
+  useState(() => {
+    saveAttempt();
+  });
 
   const headline =
     pct >= 90 ? "🏆 Outstanding!" :
@@ -260,11 +351,14 @@ function ResultsScreen({ results, onRetry, onNew }) {
       <div className="qm-panel">
         <div className="qm-header">
           <span className="qm-title">Quiz Results</span>
-          <span className="qm-status">{pct}% score</span>
+          <span className="qm-status">
+            {pct}% score
+            {saving && " · Saving..."}
+            {saved && " · ✓ Saved"}
+          </span>
         </div>
 
         <div className="qm-body">
-          {/* Score hero */}
           <div className="qm-score-hero">
             <div className="qm-score-circle">
               <span className="qm-score-num">{correct}</span>
@@ -273,7 +367,6 @@ function ResultsScreen({ results, onRetry, onNew }) {
             <p className="qm-score-headline">{headline}</p>
           </div>
 
-          {/* Score bar */}
           <div className="qm-score-container">
             <div className="qm-score-meta">
               <span>Score</span>
@@ -290,7 +383,6 @@ function ResultsScreen({ results, onRetry, onNew }) {
             </div>
           </div>
 
-          {/* Stat breakdown */}
           <div className="qm-breakdown">
             <div className="qm-stat qm-stat-correct">
               <span className="qm-stat-num">{correct}</span>
@@ -306,7 +398,6 @@ function ResultsScreen({ results, onRetry, onNew }) {
             </div>
           </div>
 
-          {/* Review list */}
           <div className="qm-review">
             {results.map((r, i) => {
               const status = !r.revealed ? "skip" : r.correct ? "correct" : "wrong";
@@ -343,16 +434,23 @@ function QuizMaker() {
   const [screen, setScreen] = useState("setup");
   const [questions, setQuestions] = useState([]);
   const [results, setResults] = useState([]);
+  const [quizId, setQuizId] = useState(null);
+  const [startTime, setStartTime] = useState(null);
+  const [durationSeconds, setDurationSeconds] = useState(0);
 
-  const handleGenerate = useCallback((qs) => {
+  const handleGenerate = useCallback((qs, id) => {
     setQuestions(qs);
+    setQuizId(id);
+    setStartTime(Date.now());
     setScreen("quiz");
   }, []);
 
   const handleFinish = useCallback((res) => {
+    const duration = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+    setDurationSeconds(duration);
     setResults(res);
     setScreen("results");
-  }, []);
+  }, [startTime]);
 
   return (
     <div className="qm-wrapper">
@@ -367,8 +465,18 @@ function QuizMaker() {
       {screen === "results" && (
         <ResultsScreen
           results={results}
-          onRetry={() => setScreen("quiz")}
-          onNew={() => { setQuestions([]); setResults([]); setScreen("setup"); }}
+          quizId={quizId}
+          durationSeconds={durationSeconds}
+          onRetry={() => {
+            setStartTime(Date.now());
+            setScreen("quiz");
+          }}
+          onNew={() => {
+            setQuestions([]);
+            setResults([]);
+            setQuizId(null);
+            setScreen("setup");
+          }}
         />
       )}
     </div>
