@@ -5,6 +5,7 @@ const LETTERS = ["A", "B", "C", "D"];
 
 // ── SETUP SCREEN ──
 function SetupScreen({ onGenerate }) {
+  const [title, setTitle] = useState(""); // ← 1. Added Title State
   const [content, setContent] = useState("");
   const [count, setCount] = useState(5);
   const [loading, setLoading] = useState(false);
@@ -33,7 +34,8 @@ function SetupScreen({ onGenerate }) {
           content,
           count,
           user_id: user?.id || null,
-          title: `Quiz - ${new Date().toLocaleDateString()}`,
+          // ← 2. Send title (if empty, sends null so backend uses date fallback)
+          title: title.trim() || null, 
           difficulty: "medium",
         }),
       });
@@ -67,6 +69,32 @@ function SetupScreen({ onGenerate }) {
         </div>
 
         <div className="qm-body">
+          {/* ── 3. NEW TITLE INPUT ── */}
+          <div>
+            <label className="qm-label" style={{ display: 'block', marginBottom: '6px' }}>
+              Quiz Title <span style={{ color: '#888', fontWeight: 'normal', fontSize: '12px' }}>(Optional)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., Chapter 1: Biology Basics"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                fontSize: '14px',
+                marginBottom: '16px',
+                outline: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+            />
+          </div>
+
           <textarea
             className="qm-textarea"
             placeholder="Paste your notes, textbook content, or study material here…"
