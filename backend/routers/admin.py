@@ -204,3 +204,127 @@ async def get_admin_stats():
         "users": user_stats,
         "recent_logs": recent_logs,
     }
+
+@router.get("/admin/notifications")
+async def get_notifications(limit: int = 10):
+    """Fetch recent activity for notifications."""
+    supabase_url = os.getenv("SUPABASE_URL")
+    if not supabase_url:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    headers = get_supabase_headers()
+    notifications = []
+
+    async with httpx.AsyncClient() as client:
+        # 1. Recent signups
+        users_res = await client.get(
+            f"{supabase_url}/rest/v1/users?select=id,full_name,email,created_at&order=created_at.desc&limit={limit}",
+            headers=headers
+        )
+        users = users_res.json() if users_res.status_code == 200 else []
+
+        for u in users:
+            notifications.append({
+                "type": "signup",
+                "icon": "🆕",
+                "title": "New user signed up",
+                "message": f"{u.get('full_name', 'Unknown')} joined U-ConvertIT",
+                "user_email": u.get("email", ""),
+                "timestamp": u.get("created_at", ""),
+            })
+
+        # 2. Recent tool usage
+        tool_res = await client.get(
+            f"{supabase_url}/rest/v1/tool_usage?select=id,user_id,tool_name,created_at&order=created_at.desc&limit={limit}",
+            headers=headers
+        )
+        tool_data = tool_res.json() if tool_res.status_code == 200 else []
+
+        # Get user info for tool usage
+        user_ids = list(set([t.get("user_id") for t in tool_data if t.get("user_id")]))
+        users_map = {}
+        if user_ids:
+            ids_str = ",".join([f'"{uid}"' for uid in user_ids])
+            user_lookup = await client.get(
+                f"{supabase_url}/rest/v1/users?id=in.({ids_str})&select=id,full_name,email",
+                headers=headers
+            )
+            if user_lookup.status_code == 200:
+                for u in user_lookup.json():
+                    users_map[u["id"]] = u
+
+        tool_emojis = {
+            "paraphraser": "📝",
+            "humanizer": "🤖",
+            "ocr": "🖼️",
+            "quiz_maker": "📚",
+            "pdf_convert": "📄",
+        }
+
+        tool_names = {
+            "paraphraser": "Paraphraser",
+            "humanizer": "Humanizer",
+            "ocr": "OCR",
+            "quiz_maker": "Quiz Maker",
+            "pdf_convert": "PDF Convert",
+        }
+
+        for t in tool_data:
+            user = users_map.get(t.get("user_id"), {})
+            tool = t.get("tool_name", "unknown")
+            notifications.append({
+                "type": "tool_usage",
+                "icon": tool_emojis.get(tool, "🔧"),
+                "title": "Tool used",
+                "message": f"{user.get('full_name', 'Someone')} used {tool_names.get(tool, tool)}",
+                "user_email": user.get("email", ""),
+                "timestamp": t.get("created_at", ""),
+            })
+
+        # 3. Recent quiz attempts
+        quiz_res = await client.get(
+            f"{supabase_url}/rest/v1/quiz_attempts?select=id,user_id,score,total,percentage,completed_at&order=completed_at.desc&limit={limit}",
+            headers=headers
+        )
+        quiz_data = quiz_res.json() if quiz_res.status_code == 200 else []
+
+        for q in quiz_data:
+            user = users_map.get(q.get("user_id"), {})
+            if q.get("user_id") and q.get("user_id") not in users_map:
+                # Fetch this user
+                u_res = await client.get(
+                    f"{supabase_url}/rest/v1/users?id=eq.{q['user_id']}&select=full_name,email",
+                    headers=headers
+                )
+                if u_res.status_code == 200 and u_res.json():
+                    user = u_res.json()[0]
+
+            score = q.get("score", 0)
+            total = q.get("total", 0)
+            percentage = q.get("percentage", 0) or 0
+
+            score_emoji = "🏆" if percentage >= 90 else "🎯" if percentage >= 70 else "📊"
+
+            notifications.append({
+                "type": "quiz_attempt",
+                "icon": score_emoji,
+                "title": "Quiz completed",
+                "message": f"{user.get('full_name', 'Someone')} scored {score}/{total} ({percentage}%)",
+                "user_email": user.get("email", ""),
+                "timestamp": q.get("completed_at", ""),
+            })
+
+    # Sort all notifications by timestamp (newest first)
+    notifications.sort(
+        key=lambda x: x.get("timestamp", ""),
+        reverse=True
+    )
+
+    # Limit to requested amount
+    notifications = notifications[:limit]
+
+    return {
+        "success": True,
+        "count": len(notifications),
+        "notifications": notifications,
+    }

@@ -378,6 +378,12 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
 
+  // Notifications
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notifRef = useRef(null);
+
   // Resizable sidebar
   const [sidebarW, setSidebarW] = useState(SIDEBAR_DEFAULT);
   const isDragging = useRef(false);
@@ -394,6 +400,7 @@ export default function AdminPage() {
     document.body.style.userSelect = 'none';
   };
 
+  // Sidebar drag handlers
   useEffect(() => {
     const onMove = (e) => {
       if (!isDragging.current) return;
@@ -443,10 +450,44 @@ export default function AdminPage() {
     }
 
     fetchAdminData();
-
-    // Refresh every 30 seconds
     const interval = setInterval(fetchAdminData, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch notifications
+  useEffect(() => {
+    async function fetchNotifications() {
+      try {
+        const res = await fetch('http://localhost:8000/api/admin/notifications?limit=15');
+        const data = await res.json();
+        if (data.success) {
+          setNotifications(data.notifications);
+          const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+          const recent = data.notifications.filter(n => {
+            if (!n.timestamp) return false;
+            return new Date(n.timestamp) > oneHourAgo;
+          });
+          setUnreadCount(recent.length);
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      }
+    }
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotifs(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Clock
@@ -471,6 +512,24 @@ export default function AdminPage() {
   const adminRaw = sessionStorage.getItem('adminUser');
   const admin = adminRaw ? JSON.parse(adminRaw) : { name: 'Admin', role: 'Super Administrator' };
   const initials = admin.name ? admin.name[0].toUpperCase() : 'A';
+
+  // Format time ago helper
+  const formatTimeAgo = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffMs = now - time;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    if (diffDay < 7) return `${diffDay}d ago`;
+    return time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   const renderContent = () => {
     if (loading) {
@@ -591,9 +650,161 @@ export default function AdminPage() {
               <span className="tb-live-txt">{stats.total_users} users</span>
             </div>
             <div className="tb-clock">{clock}</div>
-            <div className="tb-bell">
-              <IconBell />
-              <div className="tb-badge">{recentLogs.length}</div>
+
+            {/* ── Notification Bell with Dropdown ── */}
+            <div className="tb-bell-wrapper" ref={notifRef} style={{ position: 'relative' }}>
+              <div
+                className="tb-bell"
+                onClick={() => {
+                  setShowNotifs(!showNotifs);
+                  if (!showNotifs) setUnreadCount(0);
+                }}
+                style={{ cursor: 'pointer' }}
+              >
+                <IconBell />
+                {unreadCount > 0 && (
+                  <div className="tb-badge">{unreadCount}</div>
+                )}
+              </div>
+
+              {showNotifs && (
+                <div style={{
+                  position: 'absolute',
+                  top: '40px',
+                  right: '0',
+                  width: '380px',
+                  maxHeight: '500px',
+                  background: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                  border: '1px solid #e5e7eb',
+                  overflow: 'hidden',
+                  zIndex: 1000,
+                }}>
+                  {/* Header */}
+                  <div style={{
+                    padding: '16px 20px',
+                    borderBottom: '1px solid #f3f4f6',
+                    background: '#fafafa',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}>
+                    <h3 style={{
+                      margin: 0,
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      color: '#111827',
+                    }}>
+                      🔔 Notifications
+                    </h3>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#6b7280',
+                    }}>
+                      {notifications.length} recent
+                    </span>
+                  </div>
+
+                  {/* List */}
+                  <div style={{
+                    maxHeight: '400px',
+                    overflowY: 'auto',
+                  }}>
+                    {notifications.length === 0 ? (
+                      <div style={{
+                        padding: '40px 20px',
+                        textAlign: 'center',
+                        color: '#9ca3af',
+                        fontSize: '14px',
+                      }}>
+                        No recent activity
+                      </div>
+                    ) : (
+                      notifications.map((n, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: '12px 20px',
+                            borderBottom: i < notifications.length - 1 ? '1px solid #f3f4f6' : 'none',
+                            display: 'flex',
+                            gap: '12px',
+                            transition: 'background 0.15s',
+                            cursor: 'pointer',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#fafafa'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                        >
+                          <div style={{
+                            fontSize: '24px',
+                            flexShrink: 0,
+                            width: '40px',
+                            height: '40px',
+                            background: '#f3f4f6',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            {n.icon}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              color: '#111827',
+                              marginBottom: '2px',
+                            }}>
+                              {n.title}
+                            </div>
+                            <div style={{
+                              fontSize: '13px',
+                              color: '#4b5563',
+                              marginBottom: '4px',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}>
+                              {n.message}
+                            </div>
+                            <div style={{
+                              fontSize: '11px',
+                              color: '#9ca3af',
+                            }}>
+                              {formatTimeAgo(n.timestamp)}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div style={{
+                    padding: '12px 20px',
+                    borderTop: '1px solid #f3f4f6',
+                    background: '#fafafa',
+                    textAlign: 'center',
+                  }}>
+                    <button
+                      onClick={() => {
+                        setPage('Activity Logs');
+                        setShowNotifs(false);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#8B0E0E',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      View all activity →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
