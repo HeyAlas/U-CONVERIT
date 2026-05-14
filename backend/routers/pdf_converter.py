@@ -7,7 +7,10 @@ import os
 import io
 import tempfile
 import shutil
-import subprocess
+from pdf2docx import Converter
+import pdfplumber
+import mammoth
+from weasyprint import HTML
 
 from pdf2docx import Converter
 import pdfplumber
@@ -210,7 +213,7 @@ async def pdf_to_word(
 
 
 # ─────────────────────────────────────────────
-# 2️⃣ WORD → PDF
+# 2️⃣ WORD → PDF (Cloud-Compatible Version)
 # ─────────────────────────────────────────────
 
 @router.post("/word-to-pdf")
@@ -222,51 +225,46 @@ async def word_to_pdf(
     validate_file(file_bytes, file.content_type, ALLOWED_WORD)
 
     start_time = time.time()
-    tmp_dir = tempfile.mkdtemp()
 
     try:
-        docx_path = os.path.join(tmp_dir, file.filename or "input.docx")
+        # Step 1: Convert DOCX → HTML using mammoth
+        docx_file = io.BytesIO(file_bytes)
+        result = mammoth.convert_to_html(docx_file)
+        html_content = result.value
 
-        with open(docx_path, "wb") as f:
-            f.write(file_bytes)
+        # Step 2: Wrap in proper HTML with styling
+        full_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ 
+                    font-family: 'Arial', sans-serif; 
+                    line-height: 1.6;
+                    padding: 40px;
+                    color: #333;
+                }}
+                h1, h2, h3 {{ color: #1a1a1a; }}
+                p {{ margin: 10px 0; }}
+                table {{ border-collapse: collapse; width: 100%; margin: 15px 0; }}
+                td, th {{ border: 1px solid #ddd; padding: 8px; }}
+                ul, ol {{ margin: 10px 0; padding-left: 30px; }}
+            </style>
+        </head>
+        <body>
+            {html_content}
+        </body>
+        </html>
+        """
 
-        result = subprocess.run(
-            [
-                "libreoffice",
-                "--headless",
-                "--convert-to", "pdf",
-                "--outdir", tmp_dir,
-                docx_path
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-
-        if result.returncode != 0:
-            print(f"❌ LibreOffice error: {result.stderr}")
-            raise HTTPException(
-                status_code=500,
-                detail="Conversion failed. Please check your Word file."
-            )
-
-        expected_pdf = os.path.join(
-            tmp_dir,
-            (file.filename or "input.docx").rsplit(".", 1)[0] + ".pdf"
-        )
-
-        if not os.path.exists(expected_pdf):
-            raise HTTPException(
-                status_code=500,
-                detail="PDF output not found after conversion."
-            )
-
-        with open(expected_pdf, "rb") as f:
-            pdf_bytes = f.read()
+        # Step 3: Convert HTML → PDF using WeasyPrint
+        pdf_bytes = HTML(string=full_html).write_pdf()
 
         duration_ms = int((time.time() - start_time) * 1000)
         output_filename = (file.filename or "document").rsplit(".", 1)[0] + ".pdf"
 
+        # Log to Supabase
         if user_id:
             try:
                 await log_tool_usage_to_supabase(
@@ -299,21 +297,13 @@ async def word_to_pdf(
     except HTTPException:
         raise
 
-    except subprocess.TimeoutExpired:
-        raise HTTPException(
-            status_code=500,
-            detail="Conversion timed out. Please try with a smaller file."
-        )
-
     except Exception as e:
         print(f"❌ Word to PDF error: {e}")
         raise HTTPException(
             status_code=500,
             detail="Something went wrong while converting Word to PDF."
         )
-
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    
 
 
 # ─────────────────────────────────────────────
