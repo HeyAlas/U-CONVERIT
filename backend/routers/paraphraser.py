@@ -21,27 +21,26 @@ class ParaphraseRequest(BaseModel):
     user_id: Optional[str] = None
 
 
-async def call_gemini(prompt: str) -> str:
-    gemini_key = os.getenv("GEMINI_API_KEY")
+async def call_groq(prompt: str) -> str:
+    groq_key = os.getenv("GROQ_API_KEY")
     
-    if not gemini_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing")
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing")
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
+    url = "https://api.groq.com/openai/v1/chat/completions"
     
     headers = {
         "Content-Type": "application/json",
-        "x-goog-api-key": gemini_key
+        "Authorization": f"Bearer {groq_key}"
     }
     
     payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 1024,
-        }
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 1024,
     }
     
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -50,11 +49,11 @@ async def call_gemini(prompt: str) -> str:
     if response.status_code != 200:
         raise HTTPException(
             status_code=500, 
-            detail=f"Gemini API error: {response.text}"
+            detail=f"Groq API error: {response.text}"
         )
     
     data = response.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+    return data["choices"][0]["message"]["content"]
 
 
 async def log_tool_usage_to_supabase(
@@ -80,9 +79,7 @@ async def log_tool_usage_to_supabase(
         "output_size": len(output_text),
         "duration_ms": duration_ms,
         "status": "success",
-        "metadata": {
-            "mode": mode
-        }
+        "metadata": {"mode": mode}
     }
 
     headers = {
@@ -118,10 +115,10 @@ Text to paraphrase:
 
 Return ONLY the paraphrased text. Do not include explanations, quotes, markdown, bullets, or extra formatting.
 """
-        paraphrased_text = await call_gemini(prompt)
+        paraphrased_text = await call_groq(prompt)
 
         if not paraphrased_text:
-            raise HTTPException(status_code=500, detail="No result returned from Gemini")
+            raise HTTPException(status_code=500, detail="No result returned from Groq")
 
         duration_ms = int((time.time() - start_time) * 1000)
 
