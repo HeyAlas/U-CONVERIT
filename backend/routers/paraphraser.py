@@ -28,7 +28,10 @@ def get_gemini_model():
     if not gemini_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing in backend/.env")
 
-    genai.configure(api_key=gemini_key)
+    genai.configure(
+        api_key=gemini_key,
+        transport="rest"
+    )
     return genai.GenerativeModel("gemini-2.5-flash")
 
 
