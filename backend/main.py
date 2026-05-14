@@ -7,15 +7,11 @@ from routers import paraphraser, humanizer, ocr, quiz_maker, profile, admin, pdf
 
 app = FastAPI(title="UConvertIT API", version="1.0.0")
 
+# ✅ ONLY THIS BLOCK CHANGED
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://u-convertit-frontend.vercel.app",  # ✅ add your Vercel production domain
-    ],
-    allow_origin_regex=r"^https://.*\.vercel\.app$",  # ✅ allow Vercel preview deployments (optional but recommended)
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
