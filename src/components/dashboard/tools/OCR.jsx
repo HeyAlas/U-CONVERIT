@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import '../../../styles/dashboard.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -20,7 +21,6 @@ function OCR() {
 
   const fileInputRef = useRef(null);
 
-  // Word count helper
   const getWordCount = (text) => {
     return text.trim() ? text.trim().split(/\s+/).length : 0;
   };
@@ -50,13 +50,11 @@ function OCR() {
   const handleFile = (file) => {
     setError('');
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file (PNG, JPG, WEBP, etc.)');
       return;
     }
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       setError(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
       return;
@@ -96,7 +94,7 @@ function OCR() {
         formData.append('user_id', user.id);
       }
 
-      const response = await fetch('http://localhost:8000/api/ocr', {
+      const response = await fetch(`${API_BASE}/api/ocr`, {
         method: 'POST',
         body: formData,
       });
@@ -129,7 +127,6 @@ function OCR() {
 
   return (
     <div className="ocr-root">
-      {/* Top info banner */}
       <div className="ocr-top-bar">
         <div className="ocr-info-banner">
           <Sparkles size={16} />
@@ -139,7 +136,6 @@ function OCR() {
 
       <div className="ocr-container">
 
-        {/* LEFT PANEL */}
         <div className="ocr-panel">
           <div className="ocr-header">
             <span className="ocr-title">
@@ -214,7 +210,6 @@ function OCR() {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
         <div className={`ocr-panel ${isProcessing ? 'loading' : ''} ${successFlash ? 'success-flash' : ''}`}>
           <div className="ocr-header">
             <span className="ocr-title">

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/admin.css';
 
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 /* ── Tool config ── */
 const TOOL_CONFIG = {
   paraphraser: { name: 'Paraphraser', color: '#8B0E0E' },
@@ -431,7 +433,7 @@ export default function AdminPage() {
   useEffect(() => {
     async function fetchAdminData() {
       try {
-        const res = await fetch('http://localhost:8000/api/admin/stats');
+        const res = await fetch(`${API_BASE}/api/admin/stats`);
         const data = await res.json();
 
         if (data.success) {
@@ -458,7 +460,7 @@ export default function AdminPage() {
   useEffect(() => {
     async function fetchNotifications() {
       try {
-        const res = await fetch('http://localhost:8000/api/admin/notifications?limit=15');
+        const res = await fetch(`${API_BASE}/api/admin/notifications?limit=15`);
         const data = await res.json();
         if (data.success) {
           setNotifications(data.notifications);

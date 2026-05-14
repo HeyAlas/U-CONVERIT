@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/dashboard.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 function QuizHistory() {
   const navigate = useNavigate();
   
@@ -22,7 +24,7 @@ function QuizHistory() {
         }
 
         // 2️⃣ Fetch history using the REAL user.id
-        const res = await fetch(`http://localhost:8000/api/quiz/history?user_id=${user.id}`);
+        const res = await fetch(`${API_BASE}/api/quiz/history?user_id=${user.id}`);
         const data = await res.json();
 
         if (data.success) {

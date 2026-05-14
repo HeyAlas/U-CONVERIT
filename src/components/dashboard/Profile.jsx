@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/dashboard.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 // ── Inline SVG icons ──
 const IconUser = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -97,7 +99,7 @@ function Profile() {
           return;
         }
 
-        const res = await fetch(`http://localhost:8000/api/profile/${user.id}`);
+        const res = await fetch(`${API_BASE}/api/profile/${user.id}`);
         const data = await res.json();
 
         if (data.success) {
@@ -132,7 +134,7 @@ function Profile() {
       const formData = new FormData();
       formData.append('full_name', profile.fullName);
 
-      const res = await fetch(`http://localhost:8000/api/profile/${user.id}`, {
+      const res = await fetch(`${API_BASE}/api/profile/${user.id}`, {
         method: 'PUT',
         body: formData,
       });
@@ -206,7 +208,7 @@ function Profile() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(`http://localhost:8000/api/profile/${user.id}/avatar`, {
+      const res = await fetch(`${API_BASE}/api/profile/${user.id}/avatar`, {
         method: 'POST',
         body: formData,
       });

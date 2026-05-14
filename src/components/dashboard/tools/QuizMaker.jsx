@@ -1,11 +1,13 @@
 import '../../../styles/dashboard.css';
 import { useState, useCallback, useRef, useEffect } from "react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const LETTERS = ["A", "B", "C", "D"];
 
 // ── SETUP SCREEN ──
 function SetupScreen({ onGenerate }) {
-  const [title, setTitle] = useState(""); // ← 1. Added Title State
+  const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [count, setCount] = useState(5);
   const [loading, setLoading] = useState(false);
@@ -27,14 +29,13 @@ function SetupScreen({ onGenerate }) {
       const { supabase } = await import('../../../lib/supabase');
       const { data: { user } } = await supabase.auth.getUser();
 
-      const res = await fetch("http://localhost:8000/api/quiz/generate", {
+      const res = await fetch(`${API_BASE}/api/quiz/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content,
           count,
           user_id: user?.id || null,
-          // ← 2. Send title (if empty, sends null so backend uses date fallback)
           title: title.trim() || null, 
           difficulty: "medium",
         }),
@@ -69,7 +70,6 @@ function SetupScreen({ onGenerate }) {
         </div>
 
         <div className="qm-body">
-          {/* ── 3. NEW TITLE INPUT ── */}
           <div>
             <label className="qm-label" style={{ display: 'block', marginBottom: '6px' }}>
               Quiz Title <span style={{ color: '#888', fontWeight: 'normal', fontSize: '12px' }}>(Optional)</span>
@@ -295,7 +295,6 @@ function ResultsScreen({ results, quizId, durationSeconds, onRetry, onNew }) {
   const [saving, setSaving] = useState(false);
   const saveAttempted = useRef(false);
 
-  // Auto-save attempt when results screen loads
   const saveAttempt = useCallback(async () => {
     console.log("🎯 saveAttempt called");
     console.log("Quiz ID:", quizId);
@@ -332,7 +331,7 @@ function ResultsScreen({ results, quizId, durationSeconds, onRetry, onNew }) {
         total: total,
       });
 
-      const res = await fetch("http://localhost:8000/api/quiz/attempt", {
+      const res = await fetch(`${API_BASE}/api/quiz/attempt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -361,7 +360,6 @@ function ResultsScreen({ results, quizId, durationSeconds, onRetry, onNew }) {
     }
   }, [quizId, results, correct, total, durationSeconds]);
 
-  // Save once when component mounts
   useState(() => {
     saveAttempt();
   });

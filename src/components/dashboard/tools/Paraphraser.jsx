@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import '../../../styles/dashboard.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const MODES = [
   { id: 'standard', label: 'Standard', desc: 'Balanced rewrite' },
   { id: 'fluency',  label: 'Fluency',  desc: 'Improve flow' },
@@ -48,12 +50,10 @@ function Paraphraser() {
     return () => clearInterval(interval);
   }, [isProcessing]);
 
-  // Word count helper
   const getWordCount = (text) => {
     return text.trim() ? text.trim().split(/\s+/).length : 0;
   };
 
-  // Character count color helper
   const getCharCountClass = () => {
     const len = inputText.length;
     if (len > CHAR_LIMIT * 0.95) return 'pr-char-count danger';
@@ -72,7 +72,7 @@ function Paraphraser() {
       const { supabase } = await import('../../../lib/supabase');
       const { data: { user } } = await supabase.auth.getUser();
 
-      const response = await fetch('http://localhost:8000/api/paraphrase', {
+      const response = await fetch(`${API_BASE}/api/paraphrase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +125,6 @@ function Paraphraser() {
     inputRef.current?.focus();
   };
 
-  // Keyboard shortcut: Ctrl+Enter to paraphrase
   const handleKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();

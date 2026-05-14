@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import '../../../styles/dashboard.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const STRENGTH_LEVELS = [
   { id: 'light',    label: 'Light',    desc: 'Subtle touch-ups' },
   { id: 'balanced', label: 'Balanced', desc: 'Natural rewrite' },
@@ -72,7 +74,7 @@ function Humanizer() {
       const { supabase } = await import('../../../lib/supabase');
       const { data: { user } } = await supabase.auth.getUser();
 
-      const response = await fetch('http://localhost:8000/api/humanize', {
+      const response = await fetch(`${API_BASE}/api/humanize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
