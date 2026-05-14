@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import google.generativeai as genai
 import os
 import time
 import httpx
@@ -22,17 +21,40 @@ class ParaphraseRequest(BaseModel):
     user_id: Optional[str] = None
 
 
-def get_gemini_model():
+async def call_gemini(prompt: str) -> str:
     gemini_key = os.getenv("GEMINI_API_KEY")
-
+    
     if not gemini_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing in backend/.env")
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing")
 
-    genai.configure(
-        api_key=gemini_key,
-        transport="rest"
-    )
-    return genai.GenerativeModel("gemini-2.5-flash")
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": gemini_key
+    }
+    
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 1024,
+        }
+    }
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+    
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Gemini API error: {response.text}"
+        )
+    
+    data = response.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
 async def log_tool_usage_to_supabase(
@@ -87,8 +109,6 @@ async def paraphrase_text(request: ParaphraseRequest):
     start_time = time.time()
 
     try:
-        model = get_gemini_model()
-
         instruction = MODE_PROMPTS.get(request.mode, MODE_PROMPTS["standard"])
 
         prompt = f"""{instruction}
@@ -98,10 +118,7 @@ Text to paraphrase:
 
 Return ONLY the paraphrased text. Do not include explanations, quotes, markdown, bullets, or extra formatting.
 """
-
-        response = model.generate_content(prompt)
-
-        paraphrased_text = response.text.strip()
+        paraphrased_text = await call_gemini(prompt)
 
         if not paraphrased_text:
             raise HTTPException(status_code=500, detail="No result returned from Gemini")
