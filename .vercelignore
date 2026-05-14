@@ -1,0 +1,11 @@
+backend
+backend/**
+*.py
+**/*.py
+__pycache__
+**/__pycache__
+requirements.txt
+**/requirements.txt
+venv
+**/venv
+.env
