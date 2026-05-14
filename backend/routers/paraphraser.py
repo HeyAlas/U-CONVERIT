@@ -27,7 +27,7 @@ async def call_gemini(prompt: str) -> str:
     if not gemini_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing")
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
     
     headers = {
         "Content-Type": "application/json",

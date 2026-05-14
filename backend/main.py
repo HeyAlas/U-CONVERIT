@@ -31,3 +31,17 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.get("/list-models")
+async def list_models():
+    import httpx
+    import os
+    
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key}"
+        )
+    
+    return response.json()
