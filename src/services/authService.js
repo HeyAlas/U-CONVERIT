@@ -86,9 +86,9 @@ export async function resendOtp(email) {
 // ─────────────────────────────────────────
 // LOGIN — Sign in with email/password
 // ─────────────────────────────────────────
+
 export async function login({ email, password }) {
   try {
-    // 1. Sign in with Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -96,61 +96,16 @@ export async function login({ email, password }) {
 
     if (error) throw error;
 
-    // 2. Fetch user role from BACKEND (bypasses RLS)
-    let role = 'user';
-    try {
-      const res = await fetch(`${API_BASE}/api/profile/${data.user.id}`);
-      const profileData = await res.json();
-      
-      if (profileData.success && profileData.profile) {
-        role = profileData.profile.role || 'user';
-        console.log('✅ Role fetched from backend:', role);
-      } else {
-        console.warn('⚠️ Backend returned no profile, falling back to direct query');
-        
-        // 3. Fallback: Try Supabase direct query
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', data.user.id)
-          .maybeSingle();
-        
-        if (userProfile) {
-          role = userProfile.role || 'user';
-          console.log('✅ Role fetched via Supabase fallback:', role);
-        }
-      }
-    } catch (fetchErr) {
-      console.warn('⚠️ Backend fetch failed:', fetchErr);
-      
-      // Fallback to direct Supabase query
-      try {
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-        
-        if (userProfile) {
-          role = userProfile.role || 'user';
-        }
-      } catch (e) {
-        console.error('All role fetch methods failed:', e);
-      }
-    }
+    // Read role from user_metadata — no backend needed
+    let role = data.user.user_metadata?.role || 'user';
+    console.log('✅ Role from metadata:', role);
 
-    return { 
-      success: true, 
-      data: {
-        ...data,
-        role: role,
-      }
+    return {
+      success: true,
+      data: { ...data, role }
     };
   } catch (error) {
-    return { 
-      success: false, 
-      error: error.message 
-    };
+    return { success: false, error: error.message };
   }
 }
 
