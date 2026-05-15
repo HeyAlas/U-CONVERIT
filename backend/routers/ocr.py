@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from typing import Optional
-import google.generativeai as genai
 import os
 import time
 import httpx
@@ -20,17 +19,52 @@ ALLOWED_TYPES = [
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 
-def get_gemini_model():
-    gemini_key = os.getenv("GEMINI_API_KEY")
+async def call_groq_ocr(prompt: str, mime_type: str, image_base64: str) -> str:
+    groq_key = os.getenv("GROQ_API_KEY")
 
-    if not gemini_key:
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing")
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {groq_key}"
+    }
+
+    payload = {
+        "model": "llama-3.2-11b-vision-preview",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{image_base64}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 1024,
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+
+    if response.status_code != 200:
         raise HTTPException(
             status_code=500,
-            detail="GEMINI_API_KEY is missing in backend/.env"
+            detail=f"Groq API error: {response.text}"
         )
 
-    genai.configure(api_key=gemini_key)
-    return genai.GenerativeModel("gemini-2.5-flash")
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
 
 
 async def log_tool_usage_to_supabase(
@@ -104,18 +138,8 @@ async def extract_text(
     start_time = time.time()
 
     try:
-        model = get_gemini_model()
-
-        # Convert image to base64 for Gemini
+        # Convert image to base64 for Groq
         image_base64 = base64.b64encode(file_bytes).decode("utf-8")
-
-        # Create image part for Gemini
-        image_part = {
-            "inline_data": {
-                "mime_type": file.content_type,
-                "data": image_base64
-            }
-        }
 
         prompt = """Extract ALL text from this image exactly as it appears.
 
@@ -127,10 +151,9 @@ Rules:
 - If no text is found, respond with: "No text found in image."
 - Return ONLY the extracted text."""
 
-        # Call Gemini Vision
-        response = model.generate_content([prompt, image_part])
-
-        extracted_text = response.text.strip()
+        # Call Groq Vision
+        extracted_text = await call_groq_ocr(prompt, file.content_type, image_base64)
+        extracted_text = extracted_text.strip()
 
         if not extracted_text:
             extracted_text = "No text found in image."
@@ -164,10 +187,10 @@ Rules:
         error_message = str(e)
         print(f"❌ OCR error: {error_message}")
 
-        if "429" in error_message or "quota" in error_message.lower():
+        if "429" in error_message or "rate" in error_message.lower():
             raise HTTPException(
                 status_code=429,
-                detail="AI quota limit reached. Please wait a minute and try again."
+                detail="AI rate limit reached. Please wait a minute and try again."
             )
 
         raise HTTPException(
