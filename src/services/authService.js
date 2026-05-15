@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase';
 
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 // ─────────────────────────────────────────
 // SIGN UP — Create new account + send OTP
 // ─────────────────────────────────────────
@@ -96,7 +99,7 @@ export async function login({ email, password }) {
     // 2. Fetch user role from BACKEND (bypasses RLS)
     let role = 'user';
     try {
-      const res = await fetch(`http://localhost:8000/api/profile/${data.user.id}`);
+      const res = await fetch(`${API_BASE}/api/profile/${data.user.id}`);
       const profileData = await res.json();
       
       if (profileData.success && profileData.profile) {
@@ -110,7 +113,7 @@ export async function login({ email, password }) {
           .from('users')
           .select('role')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
         
         if (userProfile) {
           role = userProfile.role || 'user';
