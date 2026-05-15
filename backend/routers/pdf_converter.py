@@ -7,13 +7,10 @@ import os
 import io
 import tempfile
 import shutil
-from pdf2docx import Converter
-import pdfplumber
-import mammoth
-from weasyprint import HTML
 
 from pdf2docx import Converter
 import pdfplumber
+import mammoth
 
 router = APIRouter()
 
@@ -213,7 +210,7 @@ async def pdf_to_word(
 
 
 # ─────────────────────────────────────────────
-# 2️⃣ WORD → PDF (Cloud-Compatible Version)
+# 2️⃣ WORD → PDF (Lazy Load WeasyPrint)
 # ─────────────────────────────────────────────
 
 @router.post("/word-to-pdf")
@@ -221,6 +218,15 @@ async def word_to_pdf(
     file: UploadFile = File(...),
     user_id: Optional[str] = Form(None)
 ):
+    # ✅ Lazy import - only loads when this endpoint is called
+    try:
+        from weasyprint import HTML
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"WeasyPrint not available: {str(e)}"
+        )
+
     file_bytes = await file.read()
     validate_file(file_bytes, file.content_type, ALLOWED_WORD)
 
@@ -264,7 +270,6 @@ async def word_to_pdf(
         duration_ms = int((time.time() - start_time) * 1000)
         output_filename = (file.filename or "document").rsplit(".", 1)[0] + ".pdf"
 
-        # Log to Supabase
         if user_id:
             try:
                 await log_tool_usage_to_supabase(
@@ -303,7 +308,6 @@ async def word_to_pdf(
             status_code=500,
             detail="Something went wrong while converting Word to PDF."
         )
-    
 
 
 # ─────────────────────────────────────────────

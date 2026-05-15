@@ -3,9 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import paraphraser, humanizer, ocr, quiz_maker, profile, admin 
-
-#pdf_converter
+from routers import paraphraser, humanizer, ocr, quiz_maker, profile, admin, pdf_converter
 
 app = FastAPI(title="UConvertIT API", version="1.0.0")
 
@@ -24,7 +22,7 @@ app.include_router(ocr.router, prefix="/api", tags=["OCR"])
 app.include_router(quiz_maker.router, prefix="/api", tags=["Quiz Maker"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(admin.router, prefix="/api", tags=["Admin"])
-#app.include_router(pdf_converter.router, prefix="/api", tags=["Convert PDF"])
+app.include_router(pdf_converter.router, prefix="/api", tags=["Convert PDF"])
 
 @app.get("/")
 def root():
