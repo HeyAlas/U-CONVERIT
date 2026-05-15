@@ -6,11 +6,8 @@ import time
 import json
 import re
 import httpx
-import google.generativeai as genai
 
 router = APIRouter()
-
-GEMINI_MODEL_NAME = "gemini-2.0-flash-lite"
 
 MODE_PROMPT = (
     "You are an expert quiz writer.\n"
@@ -44,13 +41,39 @@ def extract_json_array(text: str) -> Any:
     return json.loads(m.group(0))
 
 
-def get_gemini_model():
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is missing in backend/.env")
+async def call_groq(prompt: str) -> str:
+    groq_key = os.getenv("GROQ_API_KEY")
 
-    genai.configure(api_key=gemini_key)
-    return genai.GenerativeModel("gemini-2.5-flash")
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing")
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {groq_key}"
+    }
+
+    payload = {
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 4096,
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Groq API error: {response.text}"
+        )
+
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
 
 
 def get_supabase_headers():
@@ -141,8 +164,6 @@ async def generate_quiz(req: QuizGenerateRequest):
     start = time.time()
 
     try:
-        model = get_gemini_model()
-
         prompt = (
             f"{MODE_PROMPT}\n"
             f"Study material:\n{req.content}\n\n"
@@ -157,8 +178,9 @@ async def generate_quiz(req: QuizGenerateRequest):
             f"- No markdown, no extra text.\n"
         )
 
-        resp = model.generate_content(prompt)
-        raw = (resp.text or "").strip()
+        # ✅ Use Groq instead of Gemini
+        raw = await call_groq(prompt)
+        raw = raw.strip()
 
         data = extract_json_array(raw)
 
@@ -203,12 +225,14 @@ async def generate_quiz(req: QuizGenerateRequest):
 
     except ValueError as ve:
         raise HTTPException(status_code=500, detail=str(ve))
+    except HTTPException:
+        raise
     except Exception as e:
         msg = str(e).lower()
-        if "429" in str(e) or "quota" in msg:
+        if "429" in str(e) or "rate" in msg:
             raise HTTPException(
                 status_code=429,
-                detail="AI quota limit reached. Please wait a minute and try again."
+                detail="AI rate limit reached. Please wait a minute and try again."
             )
         raise HTTPException(status_code=500, detail="Failed to generate quiz.")
 
