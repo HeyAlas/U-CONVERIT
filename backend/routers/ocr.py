@@ -33,7 +33,7 @@ async def call_groq_ocr(prompt: str, mime_type: str, image_base64: str) -> str:
     }
 
     payload = {
-        "model": "llama-3.2-11b-vision-preview",
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
         "messages": [
             {
                 "role": "user",
