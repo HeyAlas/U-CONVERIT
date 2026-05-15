@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import google.generativeai as genai
 import os
 import time
 import httpx
@@ -36,17 +35,39 @@ class HumanizeRequest(BaseModel):
     user_id: Optional[str] = None
 
 
-def get_gemini_model():
-    gemini_key = os.getenv("GEMINI_API_KEY")
+async def call_groq(prompt: str) -> str:
+    groq_key = os.getenv("GROQ_API_KEY")
 
-    if not gemini_key:
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing")
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {groq_key}"
+    }
+
+    payload = {
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.8,
+        "max_tokens": 1024,
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+
+    if response.status_code != 200:
         raise HTTPException(
             status_code=500,
-            detail="GEMINI_API_KEY is missing in backend/.env"
+            detail=f"Groq API error: {response.text}"
         )
 
-    genai.configure(api_key=gemini_key)
-    return genai.GenerativeModel("gemini-2.5-flash")
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
 
 
 def estimate_human_score(original: str, humanized: str, strength: str) -> int:
@@ -59,7 +80,6 @@ def estimate_human_score(original: str, humanized: str, strength: str) -> int:
     if not humanized:
         return 0
 
-    # Difference ratio
     original_words = re.findall(r"\w+", original.lower())
     humanized_words = re.findall(r"\w+", humanized.lower())
 
@@ -69,7 +89,6 @@ def estimate_human_score(original: str, humanized: str, strength: str) -> int:
     common = set(original_words) & set(humanized_words)
     diff_ratio = 1 - (len(common) / max(len(humanized_words), 1))
 
-    # Sentence length variation
     sentences = re.split(r"[.!?]+", humanized)
     lengths = [len(s.split()) for s in sentences if s.strip()]
     if len(lengths) > 1:
@@ -146,8 +165,6 @@ async def humanize_text(request: HumanizeRequest):
     start_time = time.time()
 
     try:
-        model = get_gemini_model()
-
         instruction = STRENGTH_PROMPTS.get(request.strength, STRENGTH_PROMPTS["balanced"])
 
         prompt = f"""{instruction}
@@ -158,11 +175,11 @@ Text to humanize:
 Return ONLY the rewritten text. Do not include explanations, labels, quotes, markdown, bullets, or any extra formatting.
 """
 
-        response = model.generate_content(prompt)
-        humanized_text = response.text.strip()
+        humanized_text = await call_groq(prompt)
+        humanized_text = humanized_text.strip()
 
         if not humanized_text:
-            raise HTTPException(status_code=500, detail="No result returned from Gemini")
+            raise HTTPException(status_code=500, detail="No result returned from Groq")
 
         duration_ms = int((time.time() - start_time) * 1000)
 
@@ -195,10 +212,10 @@ Return ONLY the rewritten text. Do not include explanations, labels, quotes, mar
         error_message = str(e)
         print(f"❌ Humanizer error: {error_message}")
 
-        if "429" in error_message or "quota" in error_message.lower():
+        if "429" in error_message or "rate" in error_message.lower():
             raise HTTPException(
                 status_code=429,
-                detail="AI quota limit reached. Please wait a minute and try again."
+                detail="AI rate limit reached. Please wait a minute and try again."
             )
 
         raise HTTPException(status_code=500, detail="Something went wrong while humanizing.")
