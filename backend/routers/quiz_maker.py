@@ -477,7 +477,6 @@ async def get_quiz_history(user_id: str):
 
     try:
         async with httpx.AsyncClient() as client:
-
             attempts_res = await client.get(
                 f"{supabase_url}/rest/v1/quiz_attempts",
                 headers=headers,
@@ -492,6 +491,11 @@ async def get_quiz_history(user_id: str):
 
             attempts = attempts_res.json()
 
+            # ── Debug: print first attempt to see all fields ──
+            if attempts:
+                print(f"📦 First attempt keys: {list(attempts[0].keys())}")
+                print(f"📦 First attempt data: {attempts[0]}")
+
             if not attempts:
                 return {"success": True, "history": []}
 
@@ -501,28 +505,129 @@ async def get_quiz_history(user_id: str):
                 f"{supabase_url}/rest/v1/quizzes",
                 headers=headers,
                 params={
-                    "id": f"in.({','.join(quiz_ids)})"
+                    "id": f"in.({','.join(quiz_ids)})",
+                    "select": "id,title,difficulty"
                 }
             )
 
             quizzes = quizzes_res.json() if quizzes_res.status_code == 200 else []
 
-            quiz_map = {q["id"]: q.get("title", "Untitled Quiz") for q in quizzes}
+            # ── Debug: print first quiz ──
+            if quizzes:
+                print(f"📦 First quiz keys: {list(quizzes[0].keys())}")
+                print(f"📦 First quiz data: {quizzes[0]}")
+
+            quiz_map = {}
+            for q in quizzes:
+                quiz_map[q["id"]] = {
+                    "title": q.get("title", "Untitled Quiz"),
+                    "difficulty": q.get("difficulty", "medium"),
+                }
 
             history = []
             for a in attempts:
+                quiz_info = quiz_map.get(a["quiz_id"], {})
                 history.append({
                     "id": a["id"],
-                    "topic": quiz_map.get(a["quiz_id"], "Unknown Quiz"),
+                    "quiz_id": a["quiz_id"],   # ← attempt's foreign key
+                    "topic": quiz_info.get("title", "Unknown Quiz"),
+                    "difficulty": quiz_info.get("difficulty", "medium"),
                     "score": f"{a['score']}/{a['total']}",
-                    "date": a["completed_at"]
+                    "date": a["completed_at"],
                 })
 
-            return {
-                "success": True,
-                "history": history
-            }
+            # ── Debug: print what we're returning ──
+            if history:
+                print(f"📦 First history item returned: {history[0]}")
+
+            return {"success": True, "history": history}
+
+    except Exception as e:
+        print(f"❌ Quiz history error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to fetch quiz history")
 
     except Exception as e:
         print(f"❌ Quiz history error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch quiz history")
+    
+@router.get("/quiz/history/detail")
+async def get_quiz_detail(quiz_id: str, user_id: str):
+    supabase_url = os.getenv("SUPABASE_URL")
+    if not supabase_url:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    headers = get_supabase_headers()
+    headers["Prefer"] = "return=representation"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Fetch the quiz
+            quiz_res = await client.get(
+                f"{supabase_url}/rest/v1/quizzes",
+                headers=headers,
+                params={
+                    "id": f"eq.{quiz_id}",
+                    "select": "id,title,questions,total_questions,difficulty,created_at"
+                }
+            )
+
+            print(f"📦 Quiz fetch status: {quiz_res.status_code}")
+            print(f"📦 Quiz fetch body: {quiz_res.text[:200]}")
+
+            if quiz_res.status_code != 200:
+                raise HTTPException(status_code=500, detail="Failed to fetch quiz from database")
+
+            quiz_data = quiz_res.json()
+            if not quiz_data:
+                raise HTTPException(status_code=404, detail="Quiz not found")
+
+            quiz = quiz_data[0]
+
+            # Fetch the latest attempt
+            attempt_res = await client.get(
+                f"{supabase_url}/rest/v1/quiz_attempts",
+                headers=headers,
+                params={
+                    "quiz_id": f"eq.{quiz_id}",
+                    "user_id": f"eq.{user_id}",
+                    "order": "completed_at.desc",
+                    "limit": "1"
+                }
+            )
+
+            print(f"📦 Attempt fetch status: {attempt_res.status_code}")
+            print(f"📦 Attempt fetch body: {attempt_res.text[:200]}")
+
+            attempt = None
+            if attempt_res.status_code == 200 and attempt_res.json():
+                attempt = attempt_res.json()[0]
+
+            return {
+                "success": True,
+                "quiz": {
+                    "id": quiz["id"],
+                    "title": quiz.get("title", "Untitled Quiz"),
+                    "difficulty": quiz.get("difficulty", "medium"),
+                    "total_questions": quiz.get("total_questions", 0),
+                    "created_at": quiz.get("created_at"),
+                    "questions": quiz.get("questions", []),
+                },
+                "attempt": {
+                    "score": attempt["score"],
+                    "total": attempt["total"],
+                    "duration_seconds": attempt.get("duration_seconds", 0),
+                    "answers": attempt.get("answers", []),
+                    "completed_at": attempt.get("completed_at"),
+                } if attempt else None,
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Quiz detail error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to fetch quiz detail: {str(e)}")
+        
