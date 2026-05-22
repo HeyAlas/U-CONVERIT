@@ -15,6 +15,12 @@ MODE_PROMPT = (
     "Return ONLY JSON. No explanations.\n"
 )
 
+GROQ_MODELS = [
+    "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
+    "gemma2-9b-it",
+]
+
 # ── REQUEST MODELS ──
 class QuizGenerateRequest(BaseModel):
     content: str
@@ -41,39 +47,96 @@ def extract_json_array(text: str) -> Any:
     return json.loads(m.group(0))
 
 
-async def call_groq(prompt: str) -> str:
-    groq_key = os.getenv("GROQ_API_KEY")
-
-    if not groq_key:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing")
-
+async def call_groq_once(prompt: str, model: str, groq_key: str) -> str:
     url = "https://api.groq.com/openai/v1/chat/completions"
-
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {groq_key}"
     }
-
     payload = {
-        "model": "llama-3.1-8b-instant",
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
         "max_tokens": 4096,
     }
-
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(url, json=payload, headers=headers)
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Groq API error: {response.text}"
-        )
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
+    if response.status_code == 429:
+        raise HTTPException(status_code=429, detail="rate_limited")
+    raise HTTPException(status_code=500, detail=f"Groq API error: {response.text}")
 
-    data = response.json()
-    return data["choices"][0]["message"]["content"]
+
+async def call_groq(prompt: str) -> str:
+    groq_key = os.getenv("GROQ_API_KEY")
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY is missing")
+
+    for model in GROQ_MODELS:
+        try:
+            return await call_groq_once(prompt, model, groq_key)
+        except HTTPException as e:
+            if e.detail == "rate_limited":
+                print(f"⚠️ Model {model} rate limited, trying next...")
+                continue
+            raise
+
+    raise HTTPException(status_code=429, detail="All Groq models are rate limited. Try again later.")
+
+
+def build_prompt(content: str, count: int) -> str:
+    return (
+        f"{MODE_PROMPT}\n"
+        f"Study material:\n{content}\n\n"
+        f"Generate exactly {count} quiz questions.\n"
+        f"Each question must follow this JSON format:\n"
+        f"{{\"question\": string, \"choices\": [4 strings], \"correctIndex\": integer 0-3}}\n\n"
+        f"Rules:\n"
+        f"- One correct answer per question.\n"
+        f"- The other choices must be plausible distractors from the text.\n"
+        f"- Do NOT invent facts not present in the material.\n"
+        f"- Return ONLY a JSON array of length {count}.\n"
+        f"- No markdown, no extra text.\n"
+    )
+
+
+async def generate_questions_in_batches(content: str, total: int) -> list:
+    BATCH_SIZE = 5
+    all_questions = []
+
+    batches = []
+    remaining = total
+    while remaining > 0:
+        batch = min(BATCH_SIZE, remaining)
+        batches.append(batch)
+        remaining -= batch
+
+    for i, batch_count in enumerate(batches):
+        print(f"🔄 Generating batch {i+1}/{len(batches)} ({batch_count} questions)...")
+        prompt = build_prompt(content, batch_count)
+        raw = await call_groq(prompt)
+        raw = raw.strip()
+        data = extract_json_array(raw)
+
+        if not isinstance(data, list):
+            raise ValueError(f"Batch {i+1} returned invalid format.")
+
+        valid = []
+        for item in data:
+            if (
+                isinstance(item, dict)
+                and isinstance(item.get("choices"), list)
+                and len(item["choices"]) == 4
+                and item.get("correctIndex") in (0, 1, 2, 3)
+            ):
+                valid.append(item)
+
+        all_questions.extend(valid)
+        print(f"✅ Batch {i+1} done: got {len(valid)} valid questions")
+
+    return all_questions
 
 
 def get_supabase_headers():
@@ -164,36 +227,14 @@ async def generate_quiz(req: QuizGenerateRequest):
     start = time.time()
 
     try:
-        prompt = (
-            f"{MODE_PROMPT}\n"
-            f"Study material:\n{req.content}\n\n"
-            f"Generate exactly {req.count} quiz questions.\n"
-            f"Each question must follow this JSON format:\n"
-            f"{{\"question\": string, \"choices\": [4 strings], \"correctIndex\": integer 0-3}}\n\n"
-            f"Rules:\n"
-            f"- One correct answer per question.\n"
-            f"- The other choices must be plausible distractors from the text.\n"
-            f"- Do NOT invent facts not present in the material.\n"
-            f"- Return ONLY a JSON array of length {req.count}.\n"
-            f"- No markdown, no extra text.\n"
-        )
+        data = await generate_questions_in_batches(req.content, req.count)
 
-        # ✅ Use Groq instead of Gemini
-        raw = await call_groq(prompt)
-        raw = raw.strip()
+        if len(data) == 0:
+            raise ValueError("No valid questions were generated.")
 
-        data = extract_json_array(raw)
-
-        if not isinstance(data, list) or len(data) != req.count:
-            raise ValueError("AI did not return the expected number of questions.")
-
-        for item in data:
-            if not isinstance(item, dict):
-                raise ValueError("Invalid question format.")
-            if not isinstance(item.get("choices"), list) or len(item["choices"]) != 4:
-                raise ValueError("Each question must have exactly 4 choices.")
-            if item.get("correctIndex") not in (0, 1, 2, 3):
-                raise ValueError("correctIndex must be 0..3.")
+        min_acceptable = max(1, int(req.count * 0.8))
+        if len(data) < min_acceptable:
+            raise ValueError(f"Only got {len(data)}/{req.count} valid questions. Please try again.")
 
         duration_ms = int((time.time() - start) * 1000)
 
@@ -210,9 +251,9 @@ async def generate_quiz(req: QuizGenerateRequest):
                 await log_tool_usage_to_supabase(
                     user_id=req.user_id,
                     input_size=len(req.content),
-                    output_size=len(raw),
+                    output_size=len(json.dumps(data)),
                     duration_ms=duration_ms,
-                    count=req.count
+                    count=len(data)
                 )
             except Exception as db_error:
                 print(f"⚠️ DB save failed: {db_error}")
@@ -288,7 +329,6 @@ async def get_quiz_history(user_id: str):
     try:
         async with httpx.AsyncClient() as client:
 
-            # 1. Get all quiz attempts for this user
             attempts_res = await client.get(
                 f"{supabase_url}/rest/v1/quiz_attempts",
                 headers=headers,
@@ -306,7 +346,6 @@ async def get_quiz_history(user_id: str):
             if not attempts:
                 return {"success": True, "history": []}
 
-            # 2. Get quiz titles from quizzes table
             quiz_ids = list(set([a["quiz_id"] for a in attempts]))
 
             quizzes_res = await client.get(
@@ -319,10 +358,8 @@ async def get_quiz_history(user_id: str):
 
             quizzes = quizzes_res.json() if quizzes_res.status_code == 200 else []
 
-            # 3. Map quiz_id → title
             quiz_map = {q["id"]: q.get("title", "Untitled Quiz") for q in quizzes}
 
-            # 4. Combine attempts + titles
             history = []
             for a in attempts:
                 history.append({
