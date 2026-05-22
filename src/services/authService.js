@@ -96,9 +96,16 @@ export async function login({ email, password }) {
 
     if (error) throw error;
 
-    // Read role from user_metadata — no backend needed
-    let role = data.user.user_metadata?.role || 'user';
-    console.log('✅ Role from metadata:', role);
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError) console.warn('Profile error:', profileError.message);
+
+    const role = profile?.role || 'student';
+    console.log('✅ Role:', role);
 
     return {
       success: true,
